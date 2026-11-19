@@ -18,6 +18,8 @@ adopath ++ "`repo'/lib"
 adopath ++ "`repo'/lib/plugins/macos"
 adopath ++ "`repo'/lib/plugins/unix"
 adopath ++ "`repo'/lib/plugins/windows"
+local pdir : env NWSBM_PLUGDIR
+if "`pdir'" != "" adopath ++ "`pdir'"
 global SBM_REPO "`repo'"
 global SBM_SCRATCH "`scratch'"
 

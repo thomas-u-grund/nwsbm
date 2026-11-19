@@ -424,32 +424,81 @@ static void cov_refresh(const Net *g, const double *beta, Work *w) {
 		else w->Ec[t] = (g->model == 1 && g->Mf[t] == 0) ? 0 : exp(c);
 	}
 }
-static double softplus_r(double r, double eta) { return r < 1e30 ? log1p(r) : eta; }
+/* Tabulated softplus f(x) = log(1 + e^x) and logistic s(x) = f'(x) on a grid of 1/64 with cubic Hermite interpolation (f from f and f', s from f' and
+   f'' = s (1 - s)); the interpolation error is below 1e-10. Outside [-36, 36]: f = x, s = 1, respectively f = s = e^x. Built once before any thread starts. */
+#define SP_PER 64
+#define SP_LIM 36
+typedef struct { double f, s, d; } SpNode;   /* d = s (1 - s) */
+static SpNode *sp_tab = NULL;
+static int sp_init(void) {
+	int k, N = 2 * SP_LIM * SP_PER + 2;
+	if (sp_tab) return 1;
+	sp_tab = malloc(sizeof(SpNode) * N);
+	if (!sp_tab) return 0;
+	for (k = 0; k < N; k++) {
+		double x = -SP_LIM + (double)k / SP_PER, e = exp(-fabs(x)), sg;
+		sp_tab[k].f = (x > 0 ? x : 0) + log1p(e);
+		sg = x >= 0 ? 1 / (1 + e) : e / (1 + e);
+		sp_tab[k].s = sg; sp_tab[k].d = sg * (1 - sg);
+	}
+	return 1;
+}
+#ifdef _MSC_VER
+#define SBM_INLINE __inline
+#else
+#define SBM_INLINE inline
+#endif
+static SBM_INLINE void sp_eval(double x, double *f, double *s) {
+	if (x >= SP_LIM) { *f = x; *s = 1; return; }
+	if (x <= -SP_LIM) { double e = exp(x); *f = e; *s = e; return; }
+	{
+		double u = (x + SP_LIM) * SP_PER, t, t2, t3, h = 1.0 / SP_PER;
+		int k = (int)u; const SpNode *a, *b;
+		t = u - k; t2 = t * t; t3 = t2 * t; a = sp_tab + k; b = a + 1;
+		*f = (2 * t3 - 3 * t2 + 1) * a->f + (t3 - 2 * t2 + t) * h * a->s + (3 * t2 - 2 * t3) * b->f + (t3 - t2) * h * b->s;
+		*s = (2 * t3 - 3 * t2 + 1) * a->s + (t3 - 2 * t2 + t) * h * a->d + (3 * t2 - 2 * t3) * b->s + (t3 - t2) * h * b->d;
+	}
+}
+
+/* Bernoulli covariate model, E step scores of both sides in one pass over the observed cells: z1 (n1 x Q1, nodes as rows) and, for a two-mode
+   network, z2 (n2 x Q2); a one-mode network has z2 = z1 (cell (i, j) feeds node i as the row and node j as the column; an undirected network visits
+   every pair once because its block matrix and its covariates are symmetric). score(i, q) = sum_j sum_l tau_jl [y_ij m_ql - softplus(m_ql + c_ij)]. */
+static void e_scores_bern(const Net *g, const Fit *f, Work *w, double *z1, double *z2) {
+	int n1 = g->n, n2 = g->n2, Q1 = f->Q, Q2 = g->kind ? f->Q2 : f->Q, i, j, q, l;
+	const double *ta = f->tau, *tb = g->kind ? f->tau2 : f->tau, *m = f->mq;
+	double *zb = g->kind ? z2 : z1;
+	int und = (!g->kind && !g->directed);
+	memset(z1, 0, sizeof(double) * (size_t)n1 * Q1);
+	if (g->kind) memset(z2, 0, sizeof(double) * (size_t)n2 * Q2);
+	for (i = 0; i < n1; i++) {
+		const double *ti = ta + (size_t)i * Q1; double *zi = z1 + (size_t)i * Q1;
+		for (j = und ? i + 1 : 0; j < n2; j++) {
+			size_t t = (size_t)i * n2 + j; double y, c0; const double *tj; double *zj;
+			if (g->Mf[t] == 0) continue;
+			y = g->Y[t]; c0 = w->Cc[t]; tj = tb + (size_t)j * Q2; zj = zb + (size_t)j * Q2;
+			for (q = 0; q < Q1; q++) {
+				double acc = 0, tq = ti[q]; const double *mr = m + (size_t)q * Q2;
+				for (l = 0; l < Q2; l++) {
+					double sp, sg, F;
+					sp_eval(mr[l] + c0, &sp, &sg);
+					F = y * mr[l] - sp;
+					acc += tj[l] * F; zj[l] += tq * F;
+				}
+				zi[q] += acc;
+			}
+		}
+	}
+	(void)n2;
+}
 
 /* E-step scores of one side: role 0 = nodes are rows, role 1 = nodes are columns; tauO: memberships of the other side; z (nS x Qs) = sum over the other side of the expected log density */
 static void cov_scores(const Net *g, const Fit *f, Work *w, int role, const double *tauO, double *z) {
 	int n1 = g->n, n2 = g->n2, Q1 = f->Q, Q2 = g->kind ? f->Q2 : f->Q;
-	int nS = role ? n2 : n1, nO = role ? n1 : n2, Qs = role ? Q2 : Q1, QO = role ? Q1 : Q2;
-	int i, j, q, l; long t;
+	int nS = role ? n2 : n1, Qs = role ? Q2 : Q1, QO = role ? Q1 : Q2;
+	int i, q, l;
 	double *mm = malloc(sizeof(double) * Qs * QO), *EE = malloc(sizeof(double) * Qs * QO);
 	for (q = 0; q < Qs; q++) for (l = 0; l < QO; l++) { int idx = role ? l * Q2 + q : q * Q2 + l; mm[q * QO + l] = f->mq[idx]; EE[q * QO + l] = g->model == 2 ? 0 : exp(f->mq[idx]); }
-	if (g->model == 0) {
-		for (i = 0; i < nS; i++) {
-			double *zi = z + (long)i * Qs;
-			for (q = 0; q < Qs; q++) zi[q] = 0;
-			for (j = 0; j < nO; j++) {
-				double y, e, c0; const double *tj;
-				t = role ? (long)j * n2 + i : (long)i * n2 + j;
-				if (g->Mf[t] == 0) continue;
-				y = g->Y[t]; e = w->Ec[t]; c0 = w->Cc[t]; tj = tauO + (long)j * QO;
-				for (q = 0; q < Qs; q++) {
-					double acc = 0;
-					for (l = 0; l < QO; l++) { double r = EE[q * QO + l] * e; acc += tj[l] * (y * mm[q * QO + l] - softplus_r(r, mm[q * QO + l] + c0)); }
-					zi[q] += acc;
-				}
-			}
-		}
-	} else if (g->model == 1) {
+	if (g->model == 1) {
 		spmm(role ? &g->ai : &g->ao, nS, tauO, QO, w->a1, 1, NULL);
 		if (role) dmmt(w->Ec, n1, n2, tauO, QO, w->n1); else dmm(w->Ec, n1, n2, tauO, QO, w->n1);
 		for (i = 0; i < nS; i++) for (q = 0; q < Qs; q++) {
@@ -484,15 +533,19 @@ static void e_step_cov(const Net *g, Fit *f, Work *w) {
 	int n1 = g->n, n2 = g->n2, Q1 = f->Q, Q2 = g->kind ? f->Q2 : f->Q, it, i;
 	for (it = 0; it < 10; it++) {
 		double step = 0;
-		cov_scores(g, f, w, 0, g->kind ? f->tau2 : f->tau, w->l1);
-		if (!g->kind && g->directed) {
-			cov_scores(g, f, w, 1, f->tau, w->l2);
-			for (i = 0; i < n1 * Q1; i++) w->l1[i] += w->l2[i];
+		if (g->model == 0) {
+			e_scores_bern(g, f, w, w->l1, w->l2);
+		} else {
+			cov_scores(g, f, w, 0, g->kind ? f->tau2 : f->tau, w->l1);
+			if (!g->kind && g->directed) {
+				cov_scores(g, f, w, 1, f->tau, w->l2);
+				for (i = 0; i < n1 * Q1; i++) w->l1[i] += w->l2[i];
+			}
 		}
 		softmax_rows(w->l1, n1, Q1, f->alpha);
 		clamp_tau(w->l1, n1, Q1);
 		if (g->kind) {
-			cov_scores(g, f, w, 1, f->tau, w->l2);
+			if (g->model != 0) cov_scores(g, f, w, 1, f->tau, w->l2);
 			softmax_rows(w->l2, n2, Q2, f->alpha2);
 			clamp_tau(w->l2, n2, Q2);
 		}
@@ -509,22 +562,22 @@ static double bern_eval(const Net *g, const Fit *f, Work *w, const double *mq, c
 	double *gm, double *hm, double *gb, double *hbm, double *hbb) {
 	int n1 = g->n, n2 = g->n2, Q1 = f->Q, Q2 = g->kind ? f->Q2 : f->Q, p = g->p, cells = Q1 * Q2, i, j, q, l, k, kk;
 	const double *ta = f->tau, *tb = g->kind ? f->tau2 : f->tau;
-	double *Em = malloc(sizeof(double) * cells), o = 0, xs[MAXCOV];
+	double o = 0, xs[MAXCOV];
+	int und = (!g->kind && !g->directed);
 	cov_refresh(g, beta, w);
-	for (q = 0; q < cells; q++) Em[q] = exp(mq[q]);
 	if (deriv) { memset(gm, 0, sizeof(double) * cells); memset(hm, 0, sizeof(double) * cells); memset(gb, 0, sizeof(double) * p); memset(hbm, 0, sizeof(double) * cells * p); memset(hbb, 0, sizeof(double) * p * p); }
 	for (i = 0; i < n1; i++) {
 		const double *t1 = ta + (long)i * Q1;
-		for (j = 0; j < n2; j++) {
-			long t = (long)i * n2 + j; double y, e, c0, sg = 0, sh = 0; const double *t2;
+		for (j = und ? i + 1 : 0; j < n2; j++) {
+			long t = (long)i * n2 + j; double y, c0, sg = 0, sh = 0; const double *t2;
 			if (g->Mf[t] == 0) continue;
-			y = g->Y[t]; e = w->Ec[t]; c0 = w->Cc[t]; t2 = tb + (long)j * Q2;
+			y = g->Y[t]; c0 = w->Cc[t]; t2 = tb + (long)j * Q2;
 			if (deriv) for (k = 0; k < p; k++) xs[k] = g->X[k][t];
 			for (q = 0; q < Q1; q++) {
 				double tq = t1[q];
 				for (l = 0; l < Q2; l++) {
-					int idx = q * Q2 + l; double ww = tq * t2[l], eta = mq[idx] + c0, r = Em[idx] * e, sp, s;
-					if (r < 1e30) { sp = log1p(r); s = r / (1 + r); } else { sp = eta; s = 1; }
+					int idx = q * Q2 + l; double ww = und ? tq * t2[l] + t2[q] * t1[l] : tq * t2[l], eta = mq[idx] + c0, sp, s;
+					sp_eval(eta, &sp, &s);
 					o += ww * (y * eta - sp);
 					if (deriv) {
 						double rr = ww * (y - s), hh = ww * s * (1 - s);
@@ -537,7 +590,6 @@ static double bern_eval(const Net *g, const Fit *f, Work *w, const double *mq, c
 		}
 	}
 	if (deriv) for (k = 0; k < p; k++) for (kk = k + 1; kk < p; kk++) hbb[k * p + kk] = hbb[kk * p + k];
-	free(Em);
 	return o;
 }
 
@@ -1362,6 +1414,7 @@ STDLL stata_call(int argc, char *argv[]) {
 		if (kind && (n2 < 2 || Q2min < 1 || Q2max < Q2min || Q2max > n2)) { SF_error("sbm_vem: the model block is invalid\n"); return 198; }
 		if (dc && ncov > 0) { SF_error("sbm_vem: degree correction cannot be combined with covariates\n"); return 198; }
 		if (dc && (kind || model != 1)) { SF_error("sbm_vem: degree correction needs a one-mode network and the Poisson model\n"); return 198; }
+		if (!sp_init()) return 909;
 		rng_seed(&rng, seed);
 		cap = 1024;
 		ar = malloc(sizeof(int) * cap); ac = malloc(sizeof(int) * cap); mr = malloc(sizeof(int) * cap); mc = malloc(sizeof(int) * cap); av = malloc(sizeof(double) * cap);
