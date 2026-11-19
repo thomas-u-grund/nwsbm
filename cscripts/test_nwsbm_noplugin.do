@@ -3,7 +3,8 @@
 capture program drop nwinstall
 local core : env NWCORE
 if "`core'" == "" local core "/Users/tgrund/FILES_NEW/SOFTWARE/nwcommands"
-local scratch "/private/tmp/claude-501/-Users-tgrund-FILES-NEW-SOFTWARE-nwcommands/9d5243e9-ee49-4558-835d-02925b410730/scratchpad/sbm/work"
+local scratch : env NWSBM_SCRATCH
+if "`scratch'" == "" local scratch "`c(tmpdir)'/nwsbm_noplugin_test"
 capture mkdir "`scratch'"
 local d "`scratch'/noplugin"
 capture mkdir "`d'"

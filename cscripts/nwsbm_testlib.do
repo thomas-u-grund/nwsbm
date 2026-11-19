@@ -4,7 +4,7 @@ capture program drop nwinstall
 local core : env NWCORE
 if "`core'" == "" local core "/Users/tgrund/FILES_NEW/SOFTWARE/nwcommands"
 local scratch : env NWSBM_SCRATCH
-if "`scratch'" == "" local scratch "/private/tmp/claude-501/-Users-tgrund-FILES-NEW-SOFTWARE-nwcommands/9d5243e9-ee49-4558-835d-02925b410730/scratchpad/sbm/work"
+if "`scratch'" == "" local scratch "`c(tmpdir)'/nwsbm_tests"
 local tag : env NWSBM_TAG
 local plus "`scratch'/plus_`tag'_`=floor(runiform()*1e9)'"
 capture mkdir "`scratch'"
@@ -16,6 +16,8 @@ adopath ++ "`core'/lib"
 adopath ++ "`repo'"
 adopath ++ "`repo'/lib"
 adopath ++ "`repo'/lib/plugins/macos"
+adopath ++ "`repo'/lib/plugins/unix"
+adopath ++ "`repo'/lib/plugins/windows"
 global SBM_REPO "`repo'"
 global SBM_SCRATCH "`scratch'"
 
