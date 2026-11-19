@@ -21,6 +21,8 @@ capture mata: mata drop SbmFit()
 capture mata: mata drop sbm_ymat()
 capture mata: mata drop SbmStore()
 capture mata: mata drop sbm_reclen()
+capture mata: mata drop SbmPlotMatrix()
+capture mata: mata drop sbm_hard()
 capture mata: mata drop sbm_setidx()
 capture mata: mata drop sbm_checkvalues()
 
@@ -292,5 +294,106 @@ void SbmStore(string scalar stub, real scalar probs, | real colvector idx1, real
 	}
 	st_store(idx2, stub, hard)
 	if (probs) for (k = 1; k <= q; k++) st_store(idx2, stub + "_p" + strofreal(k), __nwsbm_tau2[., k])
+}
+
+// hard (MAP) block of every row of a tau matrix
+real colvector sbm_hard(real matrix tau)
+{
+	real colvector h
+	real scalar k
+	real rowvector mx
+
+	h = J(rows(tau), 1, 1)
+	for (k = 1; k <= rows(tau); k++) {
+		mx = tau[k, .]
+		h[k] = (select(1..cols(tau), mx :== max(mx)))[1]
+	}
+	return(h)
+}
+
+// data of the blocked adjacency matrix plot: writes the variables of the current dataset (ties: __x __y __v; shaded block rectangles: __yl __yh __xc __w
+// __sh) and the axis specifications in locals. A: the matrix (one-mode: n x n, two-mode: rows i1, columns i2 of the full matrix); pi: connectivity
+void SbmPlotMatrix(real matrix A, real scalar kind, real colvector i1, real colvector i2, real matrix pim, real scalar shade, real scalar showmiss)
+{
+	external real matrix __nwsbm_tau, __nwsbm_tau2
+	real colvector h1, h2, p1, p2, c1, c2, sz1, sz2, ctr1, ctr2
+	real matrix M, T
+	real scalar nr, nc, q1, q2, k, l, nt, mxp, lev, r, cc
+	real colvector i, j, idx, vv
+	real matrix Msk
+	string scalar sx, sy, lx, ly
+
+	h1 = sbm_hard(__nwsbm_tau)
+	q1 = cols(__nwsbm_tau)
+	if (kind) {
+		h2 = sbm_hard(__nwsbm_tau2)
+		q2 = cols(__nwsbm_tau2)
+		M = A
+	}
+	else {
+		h2 = h1
+		q2 = q1
+		M = A
+	}
+	p1 = order((h1, (1::rows(h1))), (1, 2))
+	p2 = order((h2, (1::rows(h2))), (1, 2))
+	M = M[p1, p2]
+	h1 = h1[p1]
+	h2 = h2[p2]
+	nr = rows(M)
+	nc = cols(M)
+	sz1 = J(q1, 1, 0)
+	sz2 = J(q2, 1, 0)
+	for (k = 1; k <= q1; k++) sz1[k] = sum(h1 :== k)
+	for (k = 1; k <= q2; k++) sz2[k] = sz2[k] + sum(h2 :== k)
+	c1 = runningsum(sz1)
+	c2 = runningsum(sz2)
+	ctr1 = c1 - sz1 :/ 2 :+ 0.5
+	ctr2 = c2 - sz2 :/ 2 :+ 0.5
+	// ties: observed nonzero cells (missing cells with showmiss as value .)
+	Msk = (M :!= 0)
+	if (!showmiss) Msk = Msk :& (M :< .)
+	if (!kind) _diag(Msk, 0)
+	idx = selectindex(vec(Msk))
+	vv = vec(M)[idx]
+	j = ceil(idx :/ nr)
+	i = idx - (j :- 1) :* nr
+	T = (j, nr :- i :+ 1, vv)
+	nt = rows(T)
+	// rectangles of the block pairs, shaded by the relative connectivity
+	r = 0
+	mxp = max(abs(pim))
+	if (mxp <= 0) mxp = 1
+	if (shade) r = q1 * q2
+	st_addobs(nt + r)
+	(void) st_addvar("double", ("__x", "__y", "__v", "__yl", "__yh", "__xc", "__w", "__sh", "__rt"))
+	if (nt > 0) st_store((1::nt), ("__x", "__y", "__v"), T)
+	st_store((1::(nt + r)), "__rt", (J(nt, 1, 0) \ J(r, 1, 1)))
+	if (shade) {
+		cc = nt
+		for (k = 1; k <= q1; k++) {
+			for (l = 1; l <= q2; l++) {
+				cc++
+				lev = ceil(4 * abs(pim[k, l]) / mxp)
+				if (lev < 1) lev = 1
+				if (lev > 4) lev = 4
+				st_store(cc, ("__yl", "__yh", "__xc", "__w", "__sh"), (nr - c1[k] + 0.5, nr - (c1[k] - sz1[k]) + 0.5, c2[l] - sz2[l] / 2 + 0.5, sz2[l], lev))
+			}
+		}
+	}
+	sx = ""
+	sy = ""
+	lx = ""
+	ly = ""
+	for (k = 1; k < q2; k++) sx = sx + " " + strofreal(c2[k] + 0.5)
+	for (k = 1; k < q1; k++) sy = sy + " " + strofreal(nr - c1[k] + 0.5)
+	for (k = 1; k <= q2; k++) lx = lx + " " + strofreal(ctr2[k]) + " " + char(34) + strofreal(k) + char(34)
+	for (k = 1; k <= q1; k++) ly = ly + " " + strofreal(nr - ctr1[k] + 1) + " " + char(34) + strofreal(k) + char(34)
+	st_local("__xl", sx)
+	st_local("__yl", sy)
+	st_local("__xlab", lx)
+	st_local("__ylab", ly)
+	st_local("__nr", strofreal(nr))
+	st_local("__nc", strofreal(nc))
 }
 end

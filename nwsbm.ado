@@ -203,6 +203,7 @@ program nwsbm, eclass
 	ereturn scalar restarts = `restarts'
 	if "`model'" == "gaussian" ereturn scalar sigma2 = `__sig'
 	ereturn local cmd "nwsbm"
+	ereturn local estat_cmd "nwsbm_estat"
 	ereturn local model "`model'"
 	ereturn local network "`netname'"
 	ereturn local degreecorrected = cond(`__dc', "yes", "no")

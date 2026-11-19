@@ -7,7 +7,7 @@ OK ok1, label("OK")
 CANCEL can1, label("Cancel")
 SUBMIT sub1, label("Submit")
 RESET res1
-POSITION 10 10 580 360
+POSITION 10 10 580 470
 
 SCRIPT PREINIT
 BEGIN
@@ -18,25 +18,37 @@ DIALOG main, title("nwsbm - Stochastic block model")
 BEGIN
   TEXT tx_net 20 14 260 ., label("Network:")
   COMBOBOX cb_net 290 14 190 ., dropdown contents(netlist) nomem
-  GROUPBOX gb_blk 10 44 560 126, label("Number of blocks")
+  GROUPBOX gb_blk 10 44 560 126, label("Number of blocks (two numbers for a two-mode network: mode 1 and mode 2)")
   TEXT tx_blocks 20 64 260 ., label("Fixed number of blocks (blank = select by ICL):")
-  EDIT ed_blocks 290 64 70 ., nomem
-  TEXT tx_maxb 20 92 260 ., label("Maximum number of blocks to try (0 = default):")
-  SPINNER sp_maxb 290 92 70 ., default(0) min(0) max(999) nomem
-  TEXT tx_minb 20 120 260 ., label("Minimum number of blocks to try:")
-  SPINNER sp_minb 290 120 70 ., default(1) min(1) max(999) nomem
+  EDIT ed_blocks 290 64 90 ., nomem
+  TEXT tx_maxb 20 92 260 ., label("Maximum number of blocks to try (blank = default):")
+  EDIT ed_maxb 290 92 90 ., nomem
+  TEXT tx_minb 20 120 260 ., label("Minimum number of blocks to try (blank = 1):")
+  EDIT ed_minb 290 120 90 ., nomem
   TEXT tx_blkn 20 146 540 ., label("Fixed number and maximum cannot be combined.")
-  GROUPBOX gb_est 10 178 560 100, label("Estimation")
+  GROUPBOX gb_est 10 178 560 164, label("Estimation")
   TEXT tx_model 20 198 260 ., label("Edge model:")
   COMBOBOX cb_model 290 198 120 ., dropdownlist contents(modellist) values(modellist) default(bernoulli) nomem
-  TEXT tx_rest 20 224 260 ., label("Random restarts per number of blocks:")
-  SPINNER sp_rest 290 224 70 ., default(10) min(0) max(1000) nomem
-  TEXT tx_seed 20 250 260 ., label("Random-number seed (blank = none):")
-  EDIT ed_seed 290 250 90 ., nomem
-  GROUPBOX gb_out 10 286 560 64, label("Save results")
-  TEXT tx_gen 20 308 260 ., label("Stub for memberships and probabilities:")
-  EDIT ed_gen 290 308 110 ., nomem
-  CHECKBOX cx_repl 420 308 140 ., label("replace existing")
+  CHECKBOX cx_dc 420 198 140 ., label("degree corrected") onclickon(script dcon)
+  TEXT tx_sig 20 224 260 ., label("Fixed variance (Gaussian; blank = estimate):")
+  EDIT ed_sig 290 224 90 ., nomem
+  TEXT tx_rest 20 250 260 ., label("Random restarts per number of blocks:")
+  SPINNER sp_rest 290 250 70 ., default(10) min(0) max(1000) nomem
+  TEXT tx_thr 20 276 260 ., label("Threads (0 = one per core):")
+  SPINNER sp_thr 290 276 70 ., default(0) min(0) max(256) nomem
+  CHECKBOX cx_fast 420 276 140 ., label("fast (fewer starts)")
+  TEXT tx_seed 20 302 260 ., label("Random-number seed (blank = none):")
+  EDIT ed_seed 290 302 90 ., nomem
+  GROUPBOX gb_out 10 350 560 64, label("Save results")
+  TEXT tx_gen 20 372 260 ., label("Stub for memberships and probabilities:")
+  EDIT ed_gen 290 372 110 ., nomem
+  CHECKBOX cx_repl 420 372 140 ., label("replace existing")
+END
+
+SCRIPT dcon
+BEGIN
+	// degree correction needs the Poisson model
+	main.cb_model.setvalue "poisson"
 END
 
 LIST netlist
@@ -47,6 +59,8 @@ END
 LIST modellist
 BEGIN
 	bernoulli
+	poisson
+	gaussian
 END
 
 PROGRAM initialize
@@ -61,13 +75,28 @@ BEGIN
 		stopbox stop "Choose a network."
 	}
 	if main.ed_blocks.isneq("") & !main.ed_blocks.isnumlist() {
-		stopbox stop "Number of blocks: enter an integer."
+		stopbox stop "Number of blocks: enter an integer (two integers for a two-mode network)."
+	}
+	if main.ed_maxb.isneq("") & !main.ed_maxb.isnumlist() {
+		stopbox stop "Maximum number of blocks: enter an integer (two for a two-mode network)."
+	}
+	if main.ed_minb.isneq("") & !main.ed_minb.isnumlist() {
+		stopbox stop "Minimum number of blocks: enter an integer (two for a two-mode network)."
 	}
 	if main.ed_seed.isneq("") & !main.ed_seed.isnumlist() {
 		stopbox stop "Seed: enter an integer."
 	}
-	if main.ed_blocks.isneq("") & !main.sp_maxb.isdefault() {
+	if main.ed_sig.isneq("") & !main.ed_sig.isnumlist() {
+		stopbox stop "Fixed variance: enter a positive number."
+	}
+	if main.ed_blocks.isneq("") & main.ed_maxb.isneq("") {
 		stopbox stop "Choose either a fixed number of blocks or a maximum, not both."
+	}
+	if main.cx_dc & main.cb_model.isneq("poisson") {
+		stopbox stop "The degree-corrected model needs the Poisson edge model."
+	}
+	if main.ed_sig.isneq("") & main.cb_model.isneq("gaussian") {
+		stopbox stop "A fixed variance needs the Gaussian edge model."
 	}
 	if main.cx_repl & main.ed_gen.iseq("") {
 		stopbox stop "replace needs a stub for the new variables."
@@ -77,17 +106,29 @@ BEGIN
 	if main.ed_blocks.isneq("") {
 		put " blocks(" main.ed_blocks ")"
 	}
-	if !main.sp_maxb.isdefault() {
-		put " maxblocks(" main.sp_maxb ")"
+	if main.ed_maxb.isneq("") {
+		put " maxblocks(" main.ed_maxb ")"
 	}
-	if !main.sp_minb.isdefault() {
-		put " minblocks(" main.sp_minb ")"
+	if main.ed_minb.isneq("") {
+		put " minblocks(" main.ed_minb ")"
 	}
 	if main.cb_model.isneq("bernoulli") {
 		put " model(" main.cb_model ")"
 	}
+	if main.cx_dc {
+		put " degreecorrected"
+	}
+	if main.ed_sig.isneq("") {
+		put " sigma2(" main.ed_sig ")"
+	}
 	if !main.sp_rest.isdefault() {
 		put " restarts(" main.sp_rest ")"
+	}
+	if !main.sp_thr.isdefault() {
+		put " threads(" main.sp_thr ")"
+	}
+	if main.cx_fast {
+		put " fast"
 	}
 	if main.ed_seed.isneq("") {
 		put " seed(" main.ed_seed ")"
