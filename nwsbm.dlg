@@ -7,7 +7,7 @@ OK ok1, label("OK")
 CANCEL can1, label("Cancel")
 SUBMIT sub1, label("Submit")
 RESET res1
-POSITION 10 10 580 580
+POSITION 10 10 580 640
 
 SCRIPT PREINIT
 BEGIN
@@ -26,12 +26,13 @@ BEGIN
   TEXT tx_minb 20 120 260 ., label("Minimum number of blocks to try (blank = 1):")
   EDIT ed_minb 290 120 90 ., nomem
   TEXT tx_blkn 20 146 540 ., label("Fixed number and maximum cannot be combined.")
-  GROUPBOX gb_est 10 178 560 164, label("Estimation")
+  GROUPBOX gb_est 10 178 560 218, label("Estimation")
   TEXT tx_model 20 198 260 ., label("Edge model:")
   COMBOBOX cb_model 290 198 120 ., dropdownlist contents(modellist) values(modellist) default(bernoulli) nomem
   CHECKBOX cx_dc 420 198 140 ., label("degree corrected") onclickon(script dcon)
   TEXT tx_sig 20 224 260 ., label("Fixed variance (Gaussian; blank = estimate):")
   EDIT ed_sig 290 224 90 ., nomem
+  CHECKBOX cx_bv 420 224 140 ., label("block variances") onclickon(script bvon)
   TEXT tx_rest 20 250 260 ., label("Random restarts per number of blocks (blank = default):")
   EDIT ed_rest 290 250 90 ., nomem
   TEXT tx_thr 20 276 260 ., label("Threads (0 = one per core):")
@@ -39,19 +40,23 @@ BEGIN
   CHECKBOX cx_fast 420 276 140 ., label("fast (fewer starts)")
   TEXT tx_seed 20 302 260 ., label("Random-number seed (blank = none):")
   EDIT ed_seed 290 302 90 ., nomem
-  GROUPBOX gb_cov 10 350 560 120, label("Dyadic covariates (effects on the ties; not with degree correction)")
-  TEXT tx_cov 20 370 260 ., label("Covariate networks (names, blank = none):")
-  EDIT ed_cov 290 370 270 ., nomem
-  TEXT tx_abs 20 396 260 ., label("Node variables: absolute difference:")
-  EDIT ed_abs 290 396 270 ., nomem
-  TEXT tx_same 20 422 260 ., label("Node variables: same value (0/1):")
-  EDIT ed_same 290 422 270 ., nomem
-  TEXT tx_sdiff 20 448 260 ., label("Node variables: signed difference (directed):")
-  EDIT ed_sdiff 290 448 270 ., nomem
-  GROUPBOX gb_out 10 478 560 64, label("Save results")
-  TEXT tx_gen 20 500 260 ., label("Stub for memberships and probabilities:")
-  EDIT ed_gen 290 500 110 ., nomem
-  CHECKBOX cx_repl 420 500 140 ., label("replace existing")
+  TEXT tx_icl 20 328 260 ., label("Criterion to select the number of blocks:")
+  COMBOBOX cb_icl 290 328 120 ., dropdownlist contents(icllist) values(icllist) default(blockmodels) nomem
+  CHECKBOX cx_greedy 420 328 140 ., label("greedy search")
+  CHECKBOX cx_order 20 356 260 ., label("number the blocks by decreasing size")
+  GROUPBOX gb_cov 10 404 560 120, label("Dyadic covariates (effects on the ties; not with degree correction)")
+  TEXT tx_cov 20 424 260 ., label("Covariate networks (names, blank = none):")
+  EDIT ed_cov 290 424 270 ., nomem
+  TEXT tx_abs 20 450 260 ., label("Node variables: absolute difference:")
+  EDIT ed_abs 290 450 270 ., nomem
+  TEXT tx_same 20 476 260 ., label("Node variables: same value (0/1):")
+  EDIT ed_same 290 476 270 ., nomem
+  TEXT tx_sdiff 20 502 260 ., label("Node variables: signed difference (directed):")
+  EDIT ed_sdiff 290 502 270 ., nomem
+  GROUPBOX gb_out 10 532 560 64, label("Save results")
+  TEXT tx_gen 20 554 260 ., label("Stub for memberships and probabilities:")
+  EDIT ed_gen 290 554 110 ., nomem
+  CHECKBOX cx_repl 420 554 140 ., label("replace existing")
 END
 
 SCRIPT dcon
@@ -60,9 +65,21 @@ BEGIN
 	main.cb_model.setvalue "poisson"
 END
 
+SCRIPT bvon
+BEGIN
+	// block-specific variances need the Gaussian model
+	main.cb_model.setvalue "gaussian"
+END
+
 LIST netlist
 BEGIN
 	// populated at runtime by _nwdialog.ado
+END
+
+LIST icllist
+BEGIN
+	blockmodels
+	exact
 END
 
 LIST modellist
@@ -110,6 +127,18 @@ BEGIN
 	if main.cx_dc & main.cb_model.isneq("poisson") {
 		stopbox stop "The degree-corrected model needs the Poisson edge model."
 	}
+	if main.cx_bv & (main.cb_model.isneq("gaussian") | main.ed_sig.isneq("") | main.cx_dc) {
+		stopbox stop "Block-specific variances need the Gaussian edge model, no fixed variance and no degree correction."
+	}
+	if main.cx_bv & (main.ed_cov.isneq("") | main.ed_abs.isneq("") | main.ed_same.isneq("") | main.ed_sdiff.isneq("")) {
+		stopbox stop "Covariates cannot be combined with block-specific variances."
+	}
+	if main.cx_greedy & main.cb_icl.isneq("exact") {
+		stopbox stop "The greedy search needs the exact ICL."
+	}
+	if main.cx_greedy & main.cx_fast {
+		stopbox stop "The greedy search cannot be combined with fast."
+	}
 	if main.ed_sig.isneq("") & main.cb_model.isneq("gaussian") {
 		stopbox stop "A fixed variance needs the Gaussian edge model."
 	}
@@ -135,6 +164,18 @@ BEGIN
 	}
 	if main.ed_sig.isneq("") {
 		put " sigma2(" main.ed_sig ")"
+	}
+	if main.cx_bv {
+		put " blockvar"
+	}
+	if main.cb_icl.isneq("blockmodels") {
+		put " icl(" main.cb_icl ")"
+	}
+	if main.cx_greedy {
+		put " greedy"
+	}
+	if main.cx_order {
+		put " orderblocks"
 	}
 	if main.ed_rest.isneq("") {
 		put " restarts(" main.ed_rest ")"

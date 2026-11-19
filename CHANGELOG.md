@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0] - 2026-11-19
+- Degree-corrected two-mode model: `degreecorrected` with `model(poisson)` now also fits two-mode networks (the degree-corrected latent block model, R `greed` `DcLbm`); `icl(exact)` gives the exact ICL of `greed` for it (the terms that do not depend on the partition are left out, as in `greed`).
+- Standard errors of the covariate coefficients: `e(se_beta)` and `e(V_beta)` (inverse information of the coefficients with the block parameters profiled out, conditional on the estimated memberships); the coefficient table shows standard errors, z, p-values and confidence intervals. The R packages give none.
+- Faster Bernoulli covariate model: tabulated logistic terms, one pass over the cells for both sides of a two-mode network and for directed networks, one visit per pair for undirected networks; 2.5 to 3 times faster (n = 100: 5.6 to 2.2 s, n = 200: 18.2 to 6.3 s for `maxblocks(5)`, one thread) with the same ICL to 1e-8 relative.
+- `greedy` (with `icl(exact)`): greedy node swaps and merges on the exact ICL, as the hybrid search of `greed`; for the Bernoulli SBM, the degree-corrected Poisson SBM and the degree-corrected two-mode model. The result is never below the plain exact ICL; memberships are hard.
+- `blockvar`: Gaussian model with a variance for every pair of blocks (`e(sigma2_block)`; `e(sigma2)` is the pooled residual variance); not in R `blockmodels`.
+- `orderblocks`: blocks numbered by decreasing size.
+- Dialog `nwsbm.dlg`: block variances, criterion, greedy search, order blocks.
+- Checked: standard errors against logit / poisson / regress (one block, 1e-8 relative or better; two-mode too) and against the regression on block-pair dummies at the hard partition (within 1 percent); degree-corrected two-mode against greed 0.6.2 on 3 fixtures (same numbers of blocks, ARI 1, exact ICL to 5e-8 relative); greedy against greed on 8 fixtures; block variances against the planted values and the empirical block statistics; the earlier fixtures against R `sbm` and `greed` unchanged. macOS, Stata 17 and 18; Linux and Windows plugins are built by the workflow.
+
 ## [0.3.0] - 2026-11-19
 - Dyadic covariates for the Bernoulli, Poisson and Gaussian models, one-mode (undirected, directed) and two-mode: `covariates(netlist)` (networks of the session), `absdiff(varlist)`, `same(varlist)`, `signeddiff(varlist)` (from node variables). Link (logit, log, identity) of the mean = block parameter + coefficients x covariates; coefficients in `e(beta)`, number in `e(ncov)`, names in `e(covariates)`; the coefficients count in the ICL. The plugin holds dense n x n matrices (Poisson and Gaussian: n^2 Q per sweep, closed-form or Newton M step on the coefficients with the block parameters profiled out; Bernoulli: n^2 Q^2 per sweep, joint Newton M step with line search, starts screened at a loose tolerance and the selected fits polished). Not with `degreecorrected` or `icl(exact)`.
 - `restarts()` default depends on the size of the network: 10 up to 500 actors, 4 up to 1500, 2 above; at most 4 for the Bernoulli model with covariates. `e(restarts)` holds the number used.
