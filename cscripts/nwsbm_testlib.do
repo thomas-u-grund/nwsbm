@@ -260,10 +260,11 @@ mata set matastrict off
 // symmetric; stores externals __sim_A, __sim_X1, __sim_X2 (n x n, X2 empty if one coefficient), __sim_z (truth), __sim_x (node attribute)
 void sbmt_simcov(real scalar n, real matrix M, real colvector sizes, real rowvector beta, real scalar model, real scalar dir, real scalar seed, real scalar sd, real scalar pmiss)
 {
-	external real matrix __sim_A, __sim_X1, __sim_X2, __sim_z, __sim_x
+	external real matrix __sim_A, __sim_X1, __sim_X2, __sim_z, __sim_x, __sim_g
 	real colvector z, x, g
 	real matrix eta, A, X1, X2, U
 	real scalar q, k, i, j
+	real colvector idx
 	rseed(seed)
 	z = J(0, 1, .)
 	for (q = 1; q <= rows(sizes); q++) z = z \ J(round(sizes[q]), 1, q)
@@ -285,7 +286,7 @@ void sbmt_simcov(real scalar n, real matrix M, real colvector sizes, real rowvec
 		U = runiform(n, n) :< pmiss
 		if (!dir) U = uppertriangle(U, 0) + uppertriangle(U, 0)'
 		_diag(U, 0)
-		A = A + U :* (. :- A)
+		for (i = 1; i <= n; i++) for (j = 1; j <= n; j++) if (U[i, j]) A[i, j] = .
 	}
 	__sim_A = A
 	__sim_X1 = X1
@@ -293,6 +294,7 @@ void sbmt_simcov(real scalar n, real matrix M, real colvector sizes, real rowvec
 	else __sim_X2 = J(0, 0, .)
 	__sim_z = z
 	__sim_x = x
+	__sim_g = g
 }
 end
 
