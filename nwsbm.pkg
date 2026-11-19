@@ -1,0 +1,20 @@
+v 3
+d nwsbm. Stochastic block models for network ties, fitted by variational EM
+d Thomas U. Grund, RWTH Aachen University, www.grund.co.uk
+d email: thomas.u.grund@gmail.com
+d GPL-3. Requires the core package nwcommands.
+d Requires nwcommands (core), version 3.26.0 or later
+d Version: 0.1.0
+d Distribution-Date: 19nov2026
+f nwsbm.ado
+f nwsbm_version.ado
+f _nwsbm_libcheck.ado
+f nwsbm.sthlp
+f lib/lnwsbm.mlib
+f lib/plugins/macos/sbm_vem_macos.plugin
+f lib/plugins/windows/sbm_vem_windows.plugin
+f lib/plugins/unix/sbm_vem_unix.plugin
+f native/sbm_vem.c
+f native/Makefile
+f native/spi/stplugin.c
+f native/spi/stplugin.h

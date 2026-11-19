@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "nwsbm: a Stata package"
+type: software
+authors:
+  - family-names: Grund
+    given-names: Thomas U.
+    affiliation: RWTH Aachen University
+version: 0.1.0
+date-released: '2026-11-19'
+license: GPL-3.0-only
