@@ -915,9 +915,9 @@ static void kmeans(const double *V, int k, int d, const int *idx, int m, int Q, 
 		memcpy(cen, ROW(a), sizeof(double) * d); memcpy(cen + d, ROW(b), sizeof(double) * d);
 		for (i = 0; i < m; i++) { double s1 = sqd(ROW(i), cen, d), s2 = sqd(ROW(i), cen + d, d); mind[i] = s1 < s2 ? s1 : s2; }
 		for (c = 2; c < Q; c++) {
-			int far = 0; best = -1;
-			for (i = 0; i < m; i++) if (mind[i] > best) { best = mind[i]; far = i; }
-			memcpy(cen + c * d, ROW(far), sizeof(double) * d);
+			int farj = 0; best = -1;
+			for (i = 0; i < m; i++) if (mind[i] > best) { best = mind[i]; farj = i; }
+			memcpy(cen + c * d, ROW(farj), sizeof(double) * d);
 			for (i = 0; i < m; i++) { double s = sqd(ROW(i), cen + c * d, d); if (s < mind[i]) mind[i] = s; }
 		}
 	} else {
