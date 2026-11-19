@@ -23,7 +23,7 @@ program nwsbm, eclass
 		exit
 	}
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
-		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer 10) THReads(integer 0) FAST ICL(string) GENerate(string) replace noDISplay]
+		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -1) THReads(integer 0) FAST ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
@@ -56,7 +56,16 @@ program nwsbm, eclass
 		di as error "blocks() and maxblocks() cannot be combined"
 		error 198
 	}
-	if `restarts' < 0 | `restarts' > 1000 {
+	local __anycov = ("`covariates'`absdiff'`same'`signeddiff'" != "")
+	if `__anycov' & "`degreecorrected'" != "" {
+		di as error "degreecorrected cannot be combined with covariates"
+		error 198
+	}
+	if `__anycov' & `__exact' {
+		di as error "icl(exact) is not available with covariates"
+		error 198
+	}
+	if `restarts' != -1 & (`restarts' < 0 | `restarts' > 1000) {
 		di as error "restarts() must be between 0 and 1000"
 		error 198
 	}
@@ -123,6 +132,36 @@ program nwsbm, eclass
 		di as error "{p 0 0 2}model(bernoulli) needs ties that are 0 or 1; `netname' has other values. Use model(poisson) (counts) or model(gaussian), or dichotomise it with {bf:nwreplace}.{p_end}"
 		error 198
 	}
+	* default number of extra random starts per number of blocks: 10, fewer for large networks (the cost of every start grows with the number of ties)
+	local __rdef = (`restarts' == -1)
+	if `restarts' == -1 {
+		local __big = max(`__n1', `__n2')
+		local restarts = cond(`__big' > 1500, 2, cond(`__big' > 500, 4, 10))
+	}
+	* dyadic covariates
+	local __p = 0
+	capture mata: mata drop __nwsbm_x
+	mata: __nwsbm_x = J(0, 0, .)
+	if `__anycov' {
+		capture noisily _nwsbm_collect, covariates(`covariates') absdiff(`absdiff') same(`same') signeddiff(`signeddiff') kind(`__kind') dir(`__dir') nodes(`nodes')
+		if _rc {
+			local __rc = _rc
+			capture mata: mata drop __nwsbm_y __nwsbm_x
+			exit `__rc'
+		}
+		local __p = r(p)
+		local __cnames `r(names)'
+		if `__n1' * `__n2' > 9000000 {
+			capture mata: mata drop __nwsbm_y __nwsbm_x
+			di as error "{p 0 0 2}covariates need dense n x n matrices; a network with more than about 3000 actors is too large for them (see the help file).{p_end}"
+			error 198
+		}
+		if `__n1' * `__n2' > 1000000 {
+			di as text "{p 0 0 2}note: with covariates the computing time and memory grow with the square of the number of actors; this network has " `__n1' * `__n2' " cells (see the help file).{p_end}"
+		}
+	}
+	* Bernoulli model with covariates: every start costs n x n x Q x Q evaluations, so fewer default starts
+	if `__rdef' & `__p' > 0 & `__model' == 0 local restarts = min(`restarts', 4)
 	* ranges of block numbers
 	local qmin = 1
 	local q2min = 1
@@ -175,13 +214,13 @@ program nwsbm, eclass
 			}
 		}
 	}
-	tempname TAB PI AL BS AL2 BS2
+	tempname TAB PI AL BS AL2 BS2 BETA
 	local __fast = ("`fast'" != "")
 	local __dc = ("`degreecorrected'" != "")
-	capture noisily mata: SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'")
+	capture noisily mata: SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
 	local __rc = _rc
 	mata: st_local("__nmiss", strofreal(sum(__nwsbm_y :>= .) / (1 + (!`__dir' & !`__kind'))))
-	capture mata: mata drop __nwsbm_y
+	capture mata: mata drop __nwsbm_y __nwsbm_x
 	if `__rc' exit `__rc'
 	local __q = scalar(__nwsbm_Q)
 	local __q2 = scalar(__nwsbm_Q2)
@@ -218,6 +257,13 @@ program nwsbm, eclass
 	ereturn local network "`netname'"
 	ereturn local icltype "`icl'"
 	if `__exact' ereturn scalar ICLbm = `TAB'[`__row', 7]
+	ereturn scalar ncov = `__p'
+	if `__p' > 0 {
+		matrix colnames `BETA' = `__cnames'
+		matrix rownames `BETA' = beta
+		ereturn matrix beta = `BETA'
+		ereturn local covariates "`__cnames'"
+	}
 	ereturn local degreecorrected = cond(`__dc', "yes", "no")
 	ereturn local membership = cond(`__kind', "LBM", cond(`__dir', "SBM", "SBM_sym"))
 	if `__kind' matrix colnames `TAB' = Q1 Q2 ICL J PL H npar
@@ -340,6 +386,99 @@ program _nwsbm_display
 	if "`e(model)'" == "bernoulli" local what "Block connectivity, tie probability"
 	else if "`e(model)'" == "poisson" local what "Block connectivity, expected tie value"
 	else local what "Block means, expected tie value"
+	if e(ncov) > 0 local what "`what' (all covariates 0)"
 	di as text "`what', from the row block to the column block:"
 	matrix list e(pi), noheader format(%9.4f)
+	if e(ncov) > 0 {
+		local lk = cond("`e(model)'" == "bernoulli", "logit", cond("`e(model)'" == "poisson", "log", "identity"))
+		di
+		di as text "Covariate coefficients (`lk' scale):"
+		di as text "{hline 13}{c TT}{hline 14}"
+		tempname B
+		matrix `B' = e(beta)
+		local cn : colnames `B'
+		local j = 0
+		foreach c of local cn {
+			local ++j
+			di as text %12s abbrev("`c'", 12) " {c |}" as result %13.5f `B'[1, `j']
+		}
+		di as text "{hline 13}{c BT}{hline 14}"
+	}
+end
+
+capture program drop _nwsbm_collect
+program _nwsbm_collect, rclass
+	syntax, KIND(integer) DIR(integer) NODES(integer) [COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string)]
+	local names
+	local p = 0
+	foreach c of local covariates {
+		_nwsbm_addcov `c', type(net) kind(`kind') dir(`dir') nodes(`nodes')
+		local names `names' `c'
+		local ++p
+	}
+	foreach t in absdiff same signeddiff {
+		if "``t''" == "" continue
+		unab vl : ``t''
+		foreach v of local vl {
+			_nwsbm_addcov `v', type(`t') kind(`kind') dir(`dir') nodes(`nodes')
+			local pre = cond("`t'" == "absdiff", "abs", cond("`t'" == "same", "same", "diff"))
+			local names `names' `pre'_`v'
+			local ++p
+		}
+	}
+	if `p' > 32 {
+		di as error "at most 32 covariates"
+		error 198
+	}
+	return scalar p = `p'
+	return local names "`names'"
+end
+
+capture program drop _nwsbm_addcov
+program _nwsbm_addcov
+	syntax anything(name=spec), TYPE(string) KIND(integer) DIR(integer) NODES(integer)
+	if "`type'" == "net" {
+		_nwsyntax `spec', max(1) other(cov)
+		if ("`covis2mode'" == "true") != `kind' | `covnodes' != `nodes' {
+			di as error "{p 0 0 2}covariate network {bf:`spec'} does not match the network: it must have the same actors" cond(`kind', " and the same two modes", "") " (one-mode: " `nodes' " actors).{p_end}"
+			error 198
+		}
+		if `kind' {
+			mata: st_local("__ok", strofreal(sbm_checkmodes(`covnetobj'->get_modes())))
+			if `__ok' != 1 {
+				di as error "covariate network {bf:`spec'} has a different assignment of the actors to the two modes"
+				error 198
+			}
+			mata: st_local("__rc", strofreal(sbm_pushcov((*(`covnetobj'->get_matrix()))[__nwsbm_i1, __nwsbm_i2], 1, `dir')))
+		}
+		else mata: st_local("__rc", strofreal(sbm_pushcov(*(`covnetobj'->get_matrix()), 0, `dir')))
+	}
+	else {
+		local ty = cond("`type'" == "absdiff", "abs", cond("`type'" == "same", "same", "diff"))
+		mata: st_local("__rc", strofreal(sbm_pushvar("`spec'", "`ty'", `kind', `dir', `nodes')))
+	}
+	if `__rc' == 1 {
+		di as error "covariate {bf:`spec'} has missing values (covariates must be complete)"
+		error 416
+	}
+	if `__rc' == 2 & "`type'" == "net" {
+		di as error "covariate network {bf:`spec'} is not symmetric but the network is undirected"
+		error 198
+	}
+	if `__rc' == 2 {
+		di as error "variable {bf:`spec'}: the dataset has fewer observations than the network has actors (the node attributes are the rows of the dataset)"
+		error 198
+	}
+	if `__rc' == 3 {
+		di as error "{p 0 0 2}covariate {bf:`spec'} is constant over the pairs and cannot be separated from the block parameters.{p_end}"
+		error 198
+	}
+	if `__rc' == 4 {
+		di as error "signeddiff() needs a directed network (the signed difference is not symmetric)"
+		error 198
+	}
+	if `__rc' == 5 {
+		di as error "variable {bf:`spec'} is a string variable; only same() accepts string variables"
+		error 198
+	}
 end

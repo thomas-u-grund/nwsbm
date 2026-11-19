@@ -238,3 +238,74 @@ void sbmt_pidiff2(string scalar var, string scalar fcol, string scalar frow, rea
 	st_numscalar("__pidiff", max(abs(PM[map1, map2] - PR)))
 }
 end
+
+capture program drop sbmt_mkcov
+* sbmt_mkcov name, file(csv without header) dir(0|1|2): covariate network from a plain matrix file (dir 0 undirected, 1 directed, 2 two-mode (wide matrix as in sbmt_mknet2))
+program sbmt_mkcov
+	syntax name(name=nm), FILE(string) DIR(integer)
+	preserve
+	import delimited "`file'", clear varnames(nonames) case(preserve)
+	local k = c(k)
+	if `dir' == 0 nwset v*, name(`nm') undirected valued replace
+	else if `dir' == 1 nwset v*, name(`nm') directed valued replace
+	else nwset v*, name(`nm') bipartite valued replace
+	restore
+end
+
+* ---------- simulation of planted partitions with dyadic covariates (for recovery and timing tests) ----------
+mata:
+mata set matastrict off
+// plants Q blocks (sizes), link-scale block matrix M (Q x Q), coefficients beta (covariate 1: |x_i - x_j| of a uniform node attribute, covariate 2
+// (if two coefficients): symmetric same-group indicator of a random 3-level attribute); model 0 Bernoulli, 1 Poisson, 2 Gaussian (sd); undirected:
+// symmetric; stores externals __sim_A, __sim_X1, __sim_X2 (n x n, X2 empty if one coefficient), __sim_z (truth), __sim_x (node attribute)
+void sbmt_simcov(real scalar n, real matrix M, real colvector sizes, real rowvector beta, real scalar model, real scalar dir, real scalar seed, real scalar sd, real scalar pmiss)
+{
+	external real matrix __sim_A, __sim_X1, __sim_X2, __sim_z, __sim_x
+	real colvector z, x, g
+	real matrix eta, A, X1, X2, U
+	real scalar q, k, i, j
+	rseed(seed)
+	z = J(0, 1, .)
+	for (q = 1; q <= rows(sizes); q++) z = z \ J(round(sizes[q]), 1, q)
+	z = z[order(runiform(n, 1), 1)]
+	x = runiform(n, 1)
+	g = ceil(3 * runiform(n, 1))
+	X1 = abs(x # J(1, n, 1) - J(n, 1, 1) # x')
+	X2 = ((g # J(1, n, 1)) :== (J(n, 1, 1) # g')) :* 1
+	eta = J(n, n, 0)
+	for (i = 1; i <= n; i++) for (j = 1; j <= n; j++) eta[i, j] = M[z[i], z[j]]
+	eta = eta + beta[1] * X1
+	if (cols(beta) >= 2) eta = eta + beta[2] * X2
+	if (model == 0) A = (runiform(n, n) :< invlogit(eta)) :* 1
+	else if (model == 1) A = rpoisson(1, 1, exp(eta))
+	else A = eta + sd * rnormal(n, n, 0, 1)
+	if (!dir) A = uppertriangle(A, 0) + uppertriangle(A, 0)'
+	_diag(A, 0)
+	if (pmiss > 0) {
+		U = runiform(n, n) :< pmiss
+		if (!dir) U = uppertriangle(U, 0) + uppertriangle(U, 0)'
+		_diag(U, 0)
+		A = A + U :* (. :- A)
+	}
+	__sim_A = A
+	__sim_X1 = X1
+	if (cols(beta) >= 2) __sim_X2 = X2
+	else __sim_X2 = J(0, 0, .)
+	__sim_z = z
+	__sim_x = x
+}
+end
+
+capture program drop sbmt_frommata
+* sbmt_frommata name, mat(external Mata matrix name) dir(0|1): network from a Mata matrix (valued)
+program sbmt_frommata
+	syntax name(name=nm), MAT(string) DIR(integer)
+	preserve
+	clear
+	mata: st_addobs(rows(`mat'))
+	mata: (void) st_addvar("double", "__a" :+ strofreal(1..cols(`mat')))
+	mata: st_store(., ., `mat')
+	if `dir' nwset __a*, name(`nm') directed valued replace
+	else nwset __a*, name(`nm') undirected valued replace
+	restore
+end

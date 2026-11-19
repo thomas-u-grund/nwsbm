@@ -7,7 +7,7 @@ OK ok1, label("OK")
 CANCEL can1, label("Cancel")
 SUBMIT sub1, label("Submit")
 RESET res1
-POSITION 10 10 580 470
+POSITION 10 10 580 580
 
 SCRIPT PREINIT
 BEGIN
@@ -32,17 +32,26 @@ BEGIN
   CHECKBOX cx_dc 420 198 140 ., label("degree corrected") onclickon(script dcon)
   TEXT tx_sig 20 224 260 ., label("Fixed variance (Gaussian; blank = estimate):")
   EDIT ed_sig 290 224 90 ., nomem
-  TEXT tx_rest 20 250 260 ., label("Random restarts per number of blocks:")
-  SPINNER sp_rest 290 250 70 ., default(10) min(0) max(1000) nomem
+  TEXT tx_rest 20 250 260 ., label("Random restarts per number of blocks (blank = default):")
+  EDIT ed_rest 290 250 90 ., nomem
   TEXT tx_thr 20 276 260 ., label("Threads (0 = one per core):")
   SPINNER sp_thr 290 276 70 ., default(0) min(0) max(256) nomem
   CHECKBOX cx_fast 420 276 140 ., label("fast (fewer starts)")
   TEXT tx_seed 20 302 260 ., label("Random-number seed (blank = none):")
   EDIT ed_seed 290 302 90 ., nomem
-  GROUPBOX gb_out 10 350 560 64, label("Save results")
-  TEXT tx_gen 20 372 260 ., label("Stub for memberships and probabilities:")
-  EDIT ed_gen 290 372 110 ., nomem
-  CHECKBOX cx_repl 420 372 140 ., label("replace existing")
+  GROUPBOX gb_cov 10 350 560 120, label("Dyadic covariates (effects on the ties; not with degree correction)")
+  TEXT tx_cov 20 370 260 ., label("Covariate networks (names, blank = none):")
+  EDIT ed_cov 290 370 270 ., nomem
+  TEXT tx_abs 20 396 260 ., label("Node variables: absolute difference:")
+  EDIT ed_abs 290 396 270 ., nomem
+  TEXT tx_same 20 422 260 ., label("Node variables: same value (0/1):")
+  EDIT ed_same 290 422 270 ., nomem
+  TEXT tx_sdiff 20 448 260 ., label("Node variables: signed difference (directed):")
+  EDIT ed_sdiff 290 448 270 ., nomem
+  GROUPBOX gb_out 10 478 560 64, label("Save results")
+  TEXT tx_gen 20 500 260 ., label("Stub for memberships and probabilities:")
+  EDIT ed_gen 290 500 110 ., nomem
+  CHECKBOX cx_repl 420 500 140 ., label("replace existing")
 END
 
 SCRIPT dcon
@@ -89,6 +98,12 @@ BEGIN
 	if main.ed_sig.isneq("") & !main.ed_sig.isnumlist() {
 		stopbox stop "Fixed variance: enter a positive number."
 	}
+	if main.ed_rest.isneq("") & !main.ed_rest.isnumlist() {
+		stopbox stop "Restarts: enter a non-negative integer or leave blank."
+	}
+	if main.cx_dc & (main.ed_cov.isneq("") | main.ed_abs.isneq("") | main.ed_same.isneq("") | main.ed_sdiff.isneq("")) {
+		stopbox stop "Covariates cannot be combined with the degree-corrected model."
+	}
 	if main.ed_blocks.isneq("") & main.ed_maxb.isneq("") {
 		stopbox stop "Choose either a fixed number of blocks or a maximum, not both."
 	}
@@ -121,8 +136,8 @@ BEGIN
 	if main.ed_sig.isneq("") {
 		put " sigma2(" main.ed_sig ")"
 	}
-	if !main.sp_rest.isdefault() {
-		put " restarts(" main.sp_rest ")"
+	if main.ed_rest.isneq("") {
+		put " restarts(" main.ed_rest ")"
 	}
 	if !main.sp_thr.isdefault() {
 		put " threads(" main.sp_thr ")"
@@ -132,6 +147,18 @@ BEGIN
 	}
 	if main.ed_seed.isneq("") {
 		put " seed(" main.ed_seed ")"
+	}
+	if main.ed_cov.isneq("") {
+		put " covariates(" main.ed_cov ")"
+	}
+	if main.ed_abs.isneq("") {
+		put " absdiff(" main.ed_abs ")"
+	}
+	if main.ed_same.isneq("") {
+		put " same(" main.ed_same ")"
+	}
+	if main.ed_sdiff.isneq("") {
+		put " signeddiff(" main.ed_sdiff ")"
 	}
 	if main.ed_gen.isneq("") {
 		put " generate(" main.ed_gen ")"

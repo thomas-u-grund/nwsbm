@@ -25,6 +25,9 @@ capture mata: mata drop SbmPlotMatrix()
 capture mata: mata drop sbm_hard()
 capture mata: mata drop sbm_setidx()
 capture mata: mata drop sbm_checkvalues()
+capture mata: mata drop sbm_pushcov()
+capture mata: mata drop sbm_pushvar()
+capture mata: mata drop sbm_checkmodes()
 
 mata:
 mata set matastrict off
@@ -64,7 +67,7 @@ real scalar SbmNativeAvailable()
 	return(fileexists(p))
 }
 
-real scalar SBM_PROTOCOL_NEEDED() return(3)
+real scalar SBM_PROTOCOL_NEEDED() return(4)
 
 class SbmNat {
 	real scalar isopen, L
@@ -118,13 +121,15 @@ void SbmNat::close()
 
 // y: n x n (one-mode) or n1 x n2 (two-mode) matrix (missing = .); returns the stacked output of the plugin
 real colvector SbmNat::run(real matrix y, real scalar directed, real scalar model, real scalar kind, real scalar dc, real scalar qmin, real scalar qmax,
-	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar tot)
+	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real matrix X, real scalar tot)
 {
-	real scalar n, need
+	real scalar n, need, p
 	real colvector blob
 
 	n = rows(y)
-	blob = (SBM_PROTOCOL_NEEDED() \ n \ directed \ model \ qmin \ qmax \ seed \ restarts \ s2fix \ threads \ kind \ cols(y) \ q2min \ q2max \ dc \ fast) \ vec(y')
+	p = cols(X)
+	blob = (SBM_PROTOCOL_NEEDED() \ n \ directed \ model \ qmin \ qmax \ seed \ restarts \ s2fix \ threads \ kind \ cols(y) \ q2min \ q2max \ dc \ fast \ p) \ vec(y')
+	if (p > 0) blob = blob \ vec(X)
 	L = rows(blob)
 	need = max((L, tot, 4))
 	if (need > st_nobs()) st_addobs(need - st_nobs())
@@ -163,11 +168,89 @@ real scalar sbm_checkvalues(real matrix y, real scalar model)
 	return(0)
 }
 
+// appends a dyadic covariate (matrix A, observed cells only needed: one-mode n x n with the diagonal ignored, two-mode n1 x n2) as a column of the
+// global __nwsbm_x (row-major vectorisation). Returns 0 = ok, 1 = missing values, 2 = not symmetric although the network is undirected, 3 = constant
+real scalar sbm_pushcov(real matrix A, real scalar kind, real scalar dir)
+{
+	external real matrix __nwsbm_x
+	real matrix B
+	real colvector o
+
+	B = A
+	if (!kind) _diag(B, 0)
+	if (any(B :>= .)) return(1)
+	if (!kind & !dir) {
+		if (max(abs(B - B')) > 1e-9 * (1 + max(abs(B)))) return(2)
+	}
+	o = kind ? vec(B') : select(vec(B'), vec((J(rows(B), cols(B), 1) - I(rows(B)))'))
+	if (max(o) - min(o) <= 1e-12 * (1 + max(abs(o)))) return(3)
+	if (cols(__nwsbm_x) == 0) __nwsbm_x = vec(B')
+	else __nwsbm_x = __nwsbm_x, vec(B')
+	return(0)
+}
+
+// compares the mode membership of a covariate network with the one of the fitted two-mode network (globals __nwsbm_i1, __nwsbm_i2)
+real scalar sbm_checkmodes(string rowvector md)
+{
+	external real colvector __nwsbm_i1, __nwsbm_i2
+	real colvector a, b
+
+	a = select(1..cols(md), md :== "1")'
+	b = select(1..cols(md), md :== "2")'
+	return(rows(a) == rows(__nwsbm_i1) & rows(b) == rows(__nwsbm_i2) ? (all(a :== __nwsbm_i1) & all(b :== __nwsbm_i2)) : 0)
+}
+
+// covariate from a node variable of the dataset (rows = nodes in the order of the network): type "abs" = |x_i - x_j|, "same" = 1(x_i == x_j), "diff" = x_i - x_j.
+// Returns 0 = ok, 1 = missing value, 2 = not enough observations, 3 = constant, 4 = signed difference of an undirected network
+real scalar sbm_pushvar(string scalar vname, string scalar type, real scalar kind, real scalar dir, real scalar nodes)
+{
+	external real colvector __nwsbm_i1, __nwsbm_i2
+	real colvector x, x1, x2
+	string colvector sx, s1, s2
+	real matrix A
+	real scalar isstr, i
+
+	if (st_nobs() < nodes) return(2)
+	isstr = st_isstrvar(vname)
+	if (isstr & type != "same") return(5)
+	if (type == "diff" & !dir & !kind) return(4)
+	if (isstr) {
+		sx = st_sdata((1::nodes), vname)
+		if (any(sx :== "")) return(1)
+		if (kind) {
+			s1 = sx[__nwsbm_i1]
+			s2 = sx[__nwsbm_i2]
+		}
+		else {
+			s1 = sx
+			s2 = sx
+		}
+		A = J(rows(s1), rows(s2), 0)
+		for (i = 1; i <= rows(s1); i++) A[i, .] = (s2' :== s1[i]) :* 1
+	}
+	else {
+		x = st_data((1::nodes), vname)
+		if (any(x :>= .)) return(1)
+		if (kind) {
+			x1 = x[__nwsbm_i1]
+			x2 = x[__nwsbm_i2]
+		}
+		else {
+			x1 = x
+			x2 = x
+		}
+		A = x1 # J(1, rows(x2), 1) - J(rows(x1), 1, 1) # x2'
+		if (type == "abs") A = abs(A)
+		else if (type == "same") A = (A :== 0) :* 1
+	}
+	return(sbm_pushcov(A, kind, dir))
+}
+
 // length of one plugin record
-real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scalar q2)
+real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scalar q2, real scalar p)
 {
 	real scalar l
-	l = 9 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1
+	l = 9 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1 + p
 	if (q2 > 0) l = l + n2 * q2 + q2
 	return(l)
 }
@@ -177,31 +260,32 @@ real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scal
 //   two-mode network); the membership probabilities stay in __nwsbm_tau (and __nwsbm_tau2); scalars __nwsbm_Q, __nwsbm_Q2, __nwsbm_sigma2
 // returns the selected Q (rows block count for a two-mode network)
 real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real scalar kind, real scalar dc, real scalar qmin, real scalar qmax,
-	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact,
-	string scalar tabname, string scalar piname, string scalar alphaname, string scalar sizename, string scalar alpha2name, string scalar size2name)
+	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact, real matrix X,
+	string scalar tabname, string scalar piname, string scalar alphaname, string scalar sizename, string scalar alpha2name, string scalar size2name, string scalar betaname)
 {
 	class SbmNat scalar nat
 	real colvector out
-	real scalar n1, n2, k, l, off, nfit, best, i, qq, qq2, tot, bestoff
+	real scalar n1, n2, k, l, off, nfit, best, i, qq, qq2, tot, bestoff, np
 	real matrix tab, pm
 	real rowvector hs, mx
 	external real matrix __nwsbm_tau, __nwsbm_tau2
 
 	n1 = rows(y)
 	n2 = cols(y)
+	np = cols(X)
 	if (!kind) {
 		q2min = 0
 		q2max = 0
 	}
 	tot = 0
 	if (kind) {
-		for (k = qmin; k <= qmax; k++) for (l = q2min; l <= q2max; l++) tot = tot + sbm_reclen(n1, n2, k, l)
+		for (k = qmin; k <= qmax; k++) for (l = q2min; l <= q2max; l++) tot = tot + sbm_reclen(n1, n2, k, l, np)
 	}
 	else {
-		for (k = qmin; k <= qmax; k++) tot = tot + sbm_reclen(n1, n1, k, 0)
+		for (k = qmin; k <= qmax; k++) tot = tot + sbm_reclen(n1, n1, k, 0, np)
 	}
 	nat.open()
-	out = nat.run(y, directed, model, kind, dc, qmin, qmax, q2min, q2max, seed, restarts, s2fix, threads, fast, tot)
+	out = nat.run(y, directed, model, kind, dc, qmin, qmax, q2min, q2max, seed, restarts, s2fix, threads, fast, X, tot)
 	nat.close()
 	nfit = kind ? (qmax - qmin + 1) * (q2max - q2min + 1) : (qmax - qmin + 1)
 	tab = J(nfit, kind ? 7 : (exact ? 7 : 6), .)
@@ -224,7 +308,7 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 			best = i
 			bestoff = off
 		}
-		off = off + sbm_reclen(n1, n2, k, l)
+		off = off + sbm_reclen(n1, n2, k, l, np)
 	}
 	qq = out[bestoff + 7]
 	qq2 = out[bestoff + 8]
@@ -249,7 +333,11 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 	st_matrix(piname, pm)
 	st_matrix(alphaname, out[(off + 1)::(off + qq)]')
 	off = off + qq
-	if (kind) st_matrix(alpha2name, out[(off + 1)::(off + qq2)]')
+	if (kind) {
+		st_matrix(alpha2name, out[(off + 1)::(off + qq2)]')
+		off = off + qq2
+	}
+	if (np > 0) st_matrix(betaname, out[(off + 1)::(off + np)]')
 	hs = J(1, qq, 0)
 	for (k = 1; k <= n1; k++) {
 		mx = __nwsbm_tau[k, .]
