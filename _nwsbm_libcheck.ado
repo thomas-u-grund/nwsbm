@@ -1,4 +1,4 @@
-*! version 0.3.0  19nov2026 nwsbm
+*! version 0.4.0  19nov2026 nwsbm
 * Copyright (C) 2026 Thomas U. Grund. Part of nwsbm; GNU GPL-3 (see LICENSE).
 capture program drop _nwsbm_libcheck
 program _nwsbm_libcheck

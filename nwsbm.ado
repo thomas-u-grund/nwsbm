@@ -1,4 +1,4 @@
-*! version 0.3.0  19nov2026 nwsbm
+*! version 0.4.0  19nov2026 nwsbm
 * Copyright (C) 2026 Thomas U. Grund
 * This file is part of nwsbm, a Stata package for stochastic block models. It follows the variational EM and the ICL of the R packages
 * blockmodels and sbm and is written independently.

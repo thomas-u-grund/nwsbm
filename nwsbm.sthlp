@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3.0  19nov2026 author: Thomas Grund}{...}
+{* *! version 0.4.0  19nov2026 author: Thomas Grund}{...}
 {title:Title}
 
 {p2colset 9 17 24 2}{...}
@@ -149,4 +149,4 @@ Thomas U. Grund, RWTH Aachen University. nwsbm is part of the nwcommands family 
 {help nwsbmplot}, {help nwset}, {help nwrandom}
 
 {hline}
-{pstd}{it:nwsbm version 0.3.0, 19 November 2026}{p_end}{* nwversion}
+{pstd}{it:nwsbm version 0.4.0, 19 November 2026}{p_end}{* nwversion}

@@ -70,8 +70,14 @@ gen b = mod(_n, 3) + 1
 nwset a b, twomode name(tm) replace
 capture nwsbm tm, blocks(2)
 sbmt_expect `=_rc' 198 "two-mode network needs two block numbers"
-capture nwsbm tm, blocks(2 2) degreecorrected model(poisson)
-sbmt_expect `=_rc' 198 "degree correction on a two-mode network"
+capture nwsbm tm, blocks(2 2) degreecorrected model(bernoulli)
+sbmt_expect `=_rc' 198 "degree correction needs the Poisson model"
+capture nwsbm tm, blocks(2 2) model(bernoulli) icl(exact)
+sbmt_expect `=_rc' 198 "icl(exact) on a two-mode network without degree correction"
+capture nwsbm tm, blocks(2 2) model(poisson) degreecorrected icl(exact) greedy fast
+sbmt_expect `=_rc' 198 "greedy with fast"
+capture nwsbm tm, blocks(2 2) model(poisson) blockvar
+sbmt_expect `=_rc' 198 "blockvar needs the Gaussian model"
 capture nwsbm tm, blocks(9 2)
 sbmt_expect `=_rc' 198 "more blocks than actors of a mode"
 capture nwsbm tm, blocks(2 2) seed(3)

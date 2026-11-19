@@ -1,6 +1,6 @@
 # NOTICE
 
-<!--version-->**Version 0.3.0** (released 19 November 2026)<!--/version-->
+<!--version-->**Version 0.4.0** (released 19 November 2026)<!--/version-->
 
 nwsbm is Copyright (C) 2026 Thomas U. Grund and is distributed under the GNU General Public License, version 3 (file `LICENSE`).
 
@@ -14,4 +14,4 @@ The software was developed with Claude Code (Anthropic), an AI coding assistant,
 
 ## How to cite
 
-Grund, T. U. (2026). nwsbm: a Stata package (version 0.3.0).
+Grund, T. U. (2026). nwsbm: a Stata package (version 0.4.0).
