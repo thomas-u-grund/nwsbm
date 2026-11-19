@@ -1,0 +1,102 @@
+/* nwsbm.dlg - dialog of nwsbm (stochastic block models fitted by variational EM). */
+VERSION 14.0
+INCLUDE _std_small
+SYNCHRONOUS_ONLY
+HELP hlp1, view("help nwsbm")
+OK ok1, label("OK")
+CANCEL can1, label("Cancel")
+SUBMIT sub1, label("Submit")
+RESET res1
+POSITION 10 10 580 360
+
+SCRIPT PREINIT
+BEGIN
+	program initialize
+END
+
+DIALOG main, title("nwsbm - Stochastic block model")
+BEGIN
+  TEXT tx_net 20 14 260 ., label("Network:")
+  COMBOBOX cb_net 290 14 190 ., dropdown contents(netlist) nomem
+  GROUPBOX gb_blk 10 44 560 126, label("Number of blocks")
+  TEXT tx_blocks 20 64 260 ., label("Fixed number of blocks (blank = select by ICL):")
+  EDIT ed_blocks 290 64 70 ., nomem
+  TEXT tx_maxb 20 92 260 ., label("Maximum number of blocks to try (0 = default):")
+  SPINNER sp_maxb 290 92 70 ., default(0) min(0) max(999) nomem
+  TEXT tx_minb 20 120 260 ., label("Minimum number of blocks to try:")
+  SPINNER sp_minb 290 120 70 ., default(1) min(1) max(999) nomem
+  TEXT tx_blkn 20 146 540 ., label("Fixed number and maximum cannot be combined.")
+  GROUPBOX gb_est 10 178 560 100, label("Estimation")
+  TEXT tx_model 20 198 260 ., label("Edge model:")
+  COMBOBOX cb_model 290 198 120 ., dropdownlist contents(modellist) values(modellist) default(bernoulli) nomem
+  TEXT tx_rest 20 224 260 ., label("Random restarts per number of blocks:")
+  SPINNER sp_rest 290 224 70 ., default(10) min(0) max(1000) nomem
+  TEXT tx_seed 20 250 260 ., label("Random-number seed (blank = none):")
+  EDIT ed_seed 290 250 90 ., nomem
+  GROUPBOX gb_out 10 286 560 64, label("Save results")
+  TEXT tx_gen 20 308 260 ., label("Stub for memberships and probabilities:")
+  EDIT ed_gen 290 308 110 ., nomem
+  CHECKBOX cx_repl 420 308 140 ., label("replace existing")
+END
+
+LIST netlist
+BEGIN
+	// populated at runtime by _nwdialog.ado
+END
+
+LIST modellist
+BEGIN
+	bernoulli
+END
+
+PROGRAM initialize
+BEGIN
+	put "_nwdialog nwsbm"
+	stata hidden immediate
+END
+
+PROGRAM command
+BEGIN
+	if main.cb_net.iseq(" ") | main.cb_net.iseq("") {
+		stopbox stop "Choose a network."
+	}
+	if main.ed_blocks.isneq("") & !main.ed_blocks.isnumlist() {
+		stopbox stop "Number of blocks: enter an integer."
+	}
+	if main.ed_seed.isneq("") & !main.ed_seed.isnumlist() {
+		stopbox stop "Seed: enter an integer."
+	}
+	if main.ed_blocks.isneq("") & !main.sp_maxb.isdefault() {
+		stopbox stop "Choose either a fixed number of blocks or a maximum, not both."
+	}
+	if main.cx_repl & main.ed_gen.iseq("") {
+		stopbox stop "replace needs a stub for the new variables."
+	}
+	put "nwsbm " main.cb_net
+	put ","
+	if main.ed_blocks.isneq("") {
+		put " blocks(" main.ed_blocks ")"
+	}
+	if !main.sp_maxb.isdefault() {
+		put " maxblocks(" main.sp_maxb ")"
+	}
+	if !main.sp_minb.isdefault() {
+		put " minblocks(" main.sp_minb ")"
+	}
+	if main.cb_model.isneq("bernoulli") {
+		put " model(" main.cb_model ")"
+	}
+	if !main.sp_rest.isdefault() {
+		put " restarts(" main.sp_rest ")"
+	}
+	if main.ed_seed.isneq("") {
+		put " seed(" main.ed_seed ")"
+	}
+	if main.ed_gen.isneq("") {
+		put " generate(" main.ed_gen ")"
+	}
+	if main.cx_repl {
+		put " replace"
+	}
+	stata
+END

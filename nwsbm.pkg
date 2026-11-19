@@ -10,6 +10,7 @@ f nwsbm.ado
 f nwsbm_version.ado
 f _nwsbm_libcheck.ado
 f nwsbm.sthlp
+f nwsbm.dlg
 f lib/lnwsbm.mlib
 f lib/plugins/macos/sbm_vem_macos.plugin
 f lib/plugins/windows/sbm_vem_windows.plugin
