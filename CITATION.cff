@@ -6,6 +6,6 @@ authors:
   - family-names: Grund
     given-names: Thomas U.
     affiliation: RWTH Aachen University
-version: 0.2.0
+version: 0.3.0
 date-released: '2026-11-19'
 license: GPL-3.0-only

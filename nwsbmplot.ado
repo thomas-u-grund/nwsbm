@@ -1,4 +1,4 @@
-*! version 0.2.0  19nov2026 nwsbmplot
+*! version 0.3.0  19nov2026 nwsbmplot
 * Copyright (C) 2026 Thomas U. Grund. Part of nwsbm; GNU GPL-3 (see LICENSE).
 capture program drop nwsbmplot
 program nwsbmplot

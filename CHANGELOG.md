@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0] - 2026-11-19
+- Dyadic covariates for the Bernoulli, Poisson and Gaussian models, one-mode (undirected, directed) and two-mode: `covariates(netlist)` (networks of the session), `absdiff(varlist)`, `same(varlist)`, `signeddiff(varlist)` (from node variables). Link (logit, log, identity) of the mean = block parameter + coefficients x covariates; coefficients in `e(beta)`, number in `e(ncov)`, names in `e(covariates)`; the coefficients count in the ICL. The plugin holds dense n x n matrices (Poisson and Gaussian: n^2 Q per sweep, closed-form or Newton M step on the coefficients with the block parameters profiled out; Bernoulli: n^2 Q^2 per sweep, joint Newton M step with line search, starts screened at a loose tolerance and the selected fits polished). Not with `degreecorrected` or `icl(exact)`.
+- `restarts()` default depends on the size of the network: 10 up to 500 actors, 4 up to 1500, 2 above; at most 4 for the Bernoulli model with covariates. `e(restarts)` holds the number used.
+- Dialog `nwsbm.dlg`: covariate fields; restarts is a field (blank = default).
+- Checked: agreement with R `sbm` 1.0.0 / `blockmodels` 1.2.1 on 9 fixtures with covariates (same Q, ARI 1, ICL to 5e-8 relative, coefficients to 3e-5; Bernoulli two-mode excepted, see below), one-block fits against `glm`/`lm`, recovery of planted partitions and coefficients, error paths. Deviations from R: R's Bernoulli and Poisson covariate models treat missing ties as zeros (nwsbm leaves them out); R's Bernoulli two-mode covariate model reports a PL above the maximal log likelihood (nwsbm reports the true value); `sbm` uses an approximate Bernoulli covariate estimator by default (`fast = TRUE`), nwsbm matches the exact one.
+- Timing of the 0.2.0 single-thread path re-measured next to 0.1.0 on the same machine and load: identical (no slowdown).
+- Run so far (macOS only): see the test logs; Linux and Windows not run.
+
 ## [0.2.0] - 2026-11-19
 - Edge models: `model(poisson)` for counts and `model(gaussian)` for real-valued ties (shared variance estimated, or fixed with `sigma2(#)`), for undirected and directed one-mode networks; objective and ICL as in R `blockmodels`/`sbm` (Poisson includes the log-factorial term, Gaussian one extra parameter for the variance).
 - `degreecorrected` (with `model(poisson)`): degree-corrected block model (Karrer and Newman 2011) with the degree parameters profiled out (proportional to the observed degrees).

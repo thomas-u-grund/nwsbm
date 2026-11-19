@@ -1,5 +1,5 @@
 v 3
 d nwsbm: stochastic block models for networks in Stata
 
-p nwsbm Stochastic block models for networks v0.2.0
+p nwsbm Stochastic block models for networks v0.3.0
 d nwsbm. Stochastic block models for network ties (Holland, Laskey and Leinhardt 1983; Nowicki and Snijders 2001), fitted by variational EM

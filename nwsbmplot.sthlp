@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2.0  19nov2026 author: Thomas Grund}{...}
+{* *! version 0.3.0  19nov2026 author: Thomas Grund}{...}
 {title:Title}
 
 {p2colset 9 20 27 2}{...}
@@ -45,4 +45,4 @@ The {cmd:blocks} plot draws the blocks as nodes (size proportional to the number
 {help nwsbm}, {help nwplotmatrix}
 
 {hline}
-{pstd}{it:nwsbm version 0.2.0, 19 November 2026}{p_end}{* nwversion}
+{pstd}{it:nwsbm version 0.3.0, 19 November 2026}{p_end}{* nwversion}

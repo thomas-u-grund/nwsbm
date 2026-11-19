@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2.0  19nov2026 author: Thomas Grund}{...}
+{* *! version 0.3.0  19nov2026 author: Thomas Grund}{...}
 {title:Title}
 
 {p2colset 9 17 24 2}{...}
@@ -30,8 +30,12 @@
 {synopt :{opt degree:corrected}}degree-corrected block model; one-mode networks, with {cmd:model(poisson)}{p_end}
 {synopt :{opt sig:ma2(#)}}fix the variance of the Gaussian model; default: one common variance, estimated{p_end}
 {synopt :{opt icl(type)}}{cmd:blockmodels} (default) or {cmd:exact}, the exact ICL with conjugate priors of R {cmd:greed}{p_end}
+{synopt :{opt cov:ariates(netlist)}}dyadic covariates: networks of the nwcommands session with the same actors (for a two-mode network, the same two modes); the coefficients are estimated with the block parameters{p_end}
+{synopt :{opt absd:iff(varlist)}}covariates {it:|x_i - x_j|} from numeric node variables (one covariate per variable){p_end}
+{synopt :{opt sam:e(varlist)}}covariates {it:1(x_i = x_j)} from node variables (numeric or string){p_end}
+{synopt :{opt sign:eddiff(varlist)}}covariates {it:x_i - x_j} from numeric node variables; directed networks only{p_end}
 {synopt :{opt seed(#)}}random-number seed of the starts; default random{p_end}
-{synopt :{opt rest:arts(#)}}extra random starts per number of blocks, in addition to the spectral, split and merge starts; default {cmd:10}{p_end}
+{synopt :{opt rest:arts(#)}}extra random starts per number of blocks, in addition to the spectral, split and merge starts; default {cmd:10} for networks with up to 500 actors, {cmd:4} up to 1500, {cmd:2} above (and at most {cmd:4} for the Bernoulli model with covariates){p_end}
 {synopt :{opt thr:eads(#)}}number of threads; default {cmd:0}, one per core. The result does not depend on it{p_end}
 {synopt :{opt fast}}at most two random starts per number of blocks and no merge pass; for large networks{p_end}
 {synopt :{opt gen:erate(stub)}}save the memberships: {it:stub} holds the most probable block, {it:stub}{cmd:_p1}, {it:stub}{cmd:_p2}, ... the posterior membership probabilities (for a two-mode network the block and probabilities of the node's own mode){p_end}
@@ -46,6 +50,12 @@
 
 {pstd}
 {bf:Edge models.} With {cmd:model(bernoulli)} the tie probability of a pair depends on the two blocks; with {cmd:model(poisson)} the tie value is a count with a rate that depends on the two blocks; with {cmd:model(gaussian)} it is a normal variable whose mean depends on the two blocks and whose variance is common to all pairs (estimated, or fixed with {opt sigma2()}). Zero ties of a valued network count as observed zeros.
+
+{pstd}
+{bf:Covariates.} With {opt covariates()}, {opt absdiff()}, {opt same()} or {opt signeddiff()} the expected tie of a pair depends on the blocks and on pair-level covariates {it:x_ij1, ..., x_ijp}: the link function of the mean (logit for {cmd:bernoulli}, log for {cmd:poisson}, identity for {cmd:gaussian}) equals a block parameter plus the sum of the coefficients times the covariates, as in the covariate models of {cmd:blockmodels} and {cmd:sbm}. The coefficients are common to all blocks; each adds one parameter to the ICL. Node variables are read from the dataset: row {it:i} is actor {it:i} of the network (as with {opt generate()}); for a two-mode network the variable is compared between an actor of mode 1 and an actor of mode 2. Covariate networks must contain no missing values, must be symmetric when the network is undirected and must not be constant over the pairs. The block parameters {cmd:e(pi)} are then those of a pair with all covariates equal to 0 (response scale); the coefficients are in {cmd:e(beta)} and are displayed after the block table (no standard errors). Missing ties are left out of the covariate models as of the models without covariates (the R covariate models for the Bernoulli and Poisson edges count them as zeros). Degree correction and {opt icl(exact)} are not available with covariates.
+
+{pstd}
+{it:Computing time and memory.} Covariates make the pair terms depend on the pair, so the plugin holds dense {it:n x n} matrices (about {it:8 (3 + p + 3T) n^2} bytes for {it:p} covariates and {it:T} threads) instead of the sparse adjacency lists. The Poisson and Gaussian models need {it:O(n^2 Q)} operations per sweep. The Bernoulli model needs {it:O(n^2 Q^2)} (one logarithm per pair and pair of blocks) and is the slowest: on one thread, 100 actors with {cmd:maxblocks(5)} take about 10 seconds and 200 actors about 40 seconds on a recent laptop; use more threads, {opt fast} or a smaller {opt maxblocks()}. A note is shown above 1000 actors; networks above about 3000 actors are refused.
 
 {pstd}
 {bf:Degree correction.} With {opt degreecorrected} the Poisson rate of a pair is the product of a degree parameter of each actor and a rate that depends on the two blocks (Karrer and Newman 2011), so that actors with very different degrees can share a block. The degree parameters are profiled out (they are proportional to the observed degrees); a network with strongly varying degrees is otherwise split into blocks by degree. A directed network has an out-degree and an in-degree parameter.
@@ -64,14 +74,14 @@ for a two-mode network, where {it:PL} is the expected complete-data log likeliho
 {opt icl(exact)} replaces it by the exact ICL with conjugate priors (Dirichlet(1) for the block proportions, Beta(1,1) for the tie probabilities of the Bernoulli model, the priors of R {cmd:greed} for the degree-corrected Poisson model), evaluated at the most probable partition of every fitted Q, and selects Q by it. It is available for {cmd:model(bernoulli)} and for {cmd:model(poisson)} with {opt degreecorrected}, one-mode networks without missing ties. The table then holds the exact ICL in the ICL column and the criterion of {cmd:blockmodels} in {cmd:e(ICLbm)}.
 
 {pstd}
-The block labels are arbitrary; blocks are not ordered by size. The cost of an iteration grows with the number of ties and blocks, not with the square of the number of actors, but each Q is started many times: reduce {opt restarts()} or use {opt fast} for large networks.
+The block labels are arbitrary; blocks are not ordered by size. Without covariates the cost of an iteration grows with the number of ties and blocks, not with the square of the number of actors, but each Q is started many times: reduce {opt restarts()} or use {opt fast} for large networks.
 
 {title:Results}
 
 {pstd}
-Scalars: {cmd:e(N)} actors, {cmd:e(Q)} selected blocks (for a two-mode network {cmd:e(Q1)} and {cmd:e(Q2)}, {cmd:e(N1)} and {cmd:e(N2)} actors of the two modes; {cmd:e(Q)} equals {cmd:e(Q1)}), {cmd:e(ICL)}, {cmd:e(J)} (lower bound), {cmd:e(PL)}, {cmd:e(H)} (entropy of the memberships), {cmd:e(npar)}, {cmd:e(directed)}, {cmd:e(n_missing)} pairs with a missing tie, {cmd:e(sigma2)} (Gaussian), {cmd:e(ICLbm)} (with {cmd:icl(exact)}), {cmd:e(seed)}, {cmd:e(restarts)}.
-Macros: {cmd:e(cmd)}, {cmd:e(model)}, {cmd:e(network)}, {cmd:e(degreecorrected)}, {cmd:e(icltype)}, {cmd:e(membership)} ({cmd:SBM} directed, {cmd:SBM_sym} undirected, {cmd:LBM} two-mode, the names used by {cmd:blockmodels}).
-Matrices: {cmd:e(pi)} (block connectivity from a row block to a column block: tie probability, expected tie value or mean; Q x Q, or Q1 x Q2 for a two-mode network; for the degree-corrected model the rate that multiplies the degree parameters), {cmd:e(alpha)} (block proportions; {cmd:e(alpha2)} for mode 2), {cmd:e(blocksize)} (actors by most probable block; {cmd:e(blocksize2)}), {cmd:e(ICLtable)} (one row per fitted Q or pair of block numbers).
+Scalars: {cmd:e(N)} actors, {cmd:e(Q)} selected blocks (for a two-mode network {cmd:e(Q1)} and {cmd:e(Q2)}, {cmd:e(N1)} and {cmd:e(N2)} actors of the two modes; {cmd:e(Q)} equals {cmd:e(Q1)}), {cmd:e(ICL)}, {cmd:e(J)} (lower bound), {cmd:e(PL)}, {cmd:e(H)} (entropy of the memberships), {cmd:e(npar)}, {cmd:e(directed)}, {cmd:e(n_missing)} pairs with a missing tie, {cmd:e(sigma2)} (Gaussian), {cmd:e(ICLbm)} (with {cmd:icl(exact)}), {cmd:e(seed)}, {cmd:e(restarts)} (the number used), {cmd:e(ncov)} number of covariates.
+Macros: {cmd:e(cmd)}, {cmd:e(model)}, {cmd:e(network)}, {cmd:e(degreecorrected)}, {cmd:e(icltype)}, {cmd:e(covariates)} (names of the covariates), {cmd:e(membership)} ({cmd:SBM} directed, {cmd:SBM_sym} undirected, {cmd:LBM} two-mode, the names used by {cmd:blockmodels}).
+Matrices: {cmd:e(pi)} (block connectivity from a row block to a column block: tie probability, expected tie value or mean; Q x Q, or Q1 x Q2 for a two-mode network; for the degree-corrected model the rate that multiplies the degree parameters), {cmd:e(alpha)} (block proportions; {cmd:e(alpha2)} for mode 2), {cmd:e(blocksize)} (actors by most probable block; {cmd:e(blocksize2)}), {cmd:e(ICLtable)} (one row per fitted Q or pair of block numbers), {cmd:e(beta)} (1 x p coefficients of the covariates; with the names {it:netname}, {cmd:abs_}{it:var}, {cmd:same_}{it:var}, {cmd:diff_}{it:var}).
 
 {pstd}
 The membership probabilities are not stored in a Stata matrix (a matrix holds at most 800 rows in Stata BE); use {opt generate()}, also after a fit by typing {cmd:nwsbm, generate(}{it:stub}{cmd:)}. In a two-mode network the nwcommands convention puts the columns of the wide matrix into mode 1.
@@ -91,13 +101,15 @@ The membership probabilities are not stored in a Stata matrix (a matrix holds at
 {phang2}{cmd:. nwsbm g, blocks(3) seed(1) generate(b3)}{p_end}
 {phang2}{cmd:. matrix list e(pi)}{p_end}
 {phang2}{cmd:. nwsbm g, model(poisson) degreecorrected maxblocks(6) icl(exact)}{p_end}
+{phang2}{cmd:. nwsbm g, model(poisson) maxblocks(5) covariates(distance) absdiff(age) same(gender)}{p_end}
+{phang2}{cmd:. matrix list e(beta)}{p_end}
 {phang2}{cmd:. estat blocks}{p_end}
 {phang2}{cmd:. nwsbmplot, shade}{p_end}
 
 {title:Not in this version}
 
 {pstd}
-Covariates on the ties, multiplex and dynamic networks, the degree-corrected two-mode model and a Gaussian model with block-specific variances are not available.
+Multiplex and dynamic networks, the degree-corrected two-mode model, covariates with the degree-corrected model and a Gaussian model with block-specific variances are not available.
 
 {title:References}
 
@@ -130,4 +142,4 @@ Thomas U. Grund, RWTH Aachen University. nwsbm is part of the nwcommands family 
 {help nwsbmplot}, {help nwset}, {help nwrandom}
 
 {hline}
-{pstd}{it:nwsbm version 0.2.0, 19 November 2026}{p_end}{* nwversion}
+{pstd}{it:nwsbm version 0.3.0, 19 November 2026}{p_end}{* nwversion}

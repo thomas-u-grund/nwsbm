@@ -11,7 +11,8 @@ Owner: Thomas U. Grund (sole author). GPL-3. Part of the nwcommands family; depe
 |---|---|---|
 | 0.1.0 | Bernoulli SBM, undirected (blockmodels `SBM_sym`) and directed (`SBM`) one-mode networks, missing ties allowed | this version |
 | 0.2.0 | Poisson and Gaussian SBM (valued networks), degree-corrected Poisson SBM, latent block model (two-mode), exact ICL, threads, estat, nwsbmplot | this version |
-| later | covariates, degree-corrected two-mode, ZIP | TODO |
+| 0.3.0 | dyadic covariates (Bernoulli, Poisson, Gaussian; one-mode and two-mode), restarts default by size | this version |
+| later | degree-corrected two-mode, ZIP, standard errors | TODO |
 
 Out of scope for 0.1.0: valued edges (error with a pointer to dichotomising), two-mode networks, degree correction, covariates, multiplex/dynamic, self-loops (ignored, as blockmodels), exact ICL of greed, plots, `estat`, parallel threads.
 
@@ -69,3 +70,16 @@ Same engine for all models: the plugin works with the sufficient statistics ZA (
 - Degree-corrected vs greed DcSbm (3 fixtures): same number of blocks, ARI 1.0000 / 1.0000 / 0.987 against greed; the plain Poisson SBM selects 6 blocks on the same networks (degree heterogeneity). Exact ICL of nwsbm vs greed at identical partitions: equal to a relative 1e-6 (5 fixtures incl. directed binary SBM); in dc_u_n200_Q4 the partitions differ by two nodes and greed's ICL is larger by 0.05 (7e-6 relative).
 - Recovery: Poisson, Gaussian, degree-corrected (strong degree heterogeneity: ARI 0.90), two-mode Bernoulli/Poisson/Gaussian: right Q and ARI >= 0.90 (cscripts/test_nwsbm_recovery2.do).
 - Timing (Stata 17, one thread, same Q range 1..6 with 10 extra starts, load average about 6 on the machine): n = 200: 0.64 s (R 0.56 s), 500: 5.7 s (R 4.2 s), 1000: 12.6 s (R 18.1 s); threads(4): 0.27 / 2.9 / 6.3 s; `fast` one thread: 0.19 / 2.3 / 4.2 s. In 0.1.0 (idle machine) the single-thread times were 0.4 / 3.0 / 8.3 s; the difference is probably the load, to be re-measured on an idle machine.
+
+## Milestone 3 (0.3.0): covariates
+Model: link(E[y_ij | Z_i = q, Z_j = l]) = m_ql + sum_k beta_k x_ijk (logit, log, identity; Gaussian: one common variance). npar = block parameters + p (+1 Gaussian variance); ICL as before (PL, not J). The plugin keeps dense n x n2 matrices Y, observation mask, covariates (input block: 17 header rows, then the matrix, then p covariate matrices); degree correction and exact ICL are excluded.
+- E step: per side, score_iq = sum_j sum_l tau_jl f(y_ij, m_ql + c_ij) (c = covariate part). Poisson: sum_l [a_il m_ql - e^{m_ql} s_il] with a = A tau (sparse) and s = (e^c masked) tau (dense, n^2 Q); Gaussian: sum_l [r_il m_ql - n_il m_ql^2 / 2] / sigma2 with r = (y - c) masked tau; Bernoulli: one log1p per pair and block pair (n^2 Q^2 per sweep).
+- M step: Gaussian closed form (Schur complement of the normal equations for beta after profiling the block means); Poisson: Newton on beta with the block rates profiled out (m_ql = log(ZA_ql / ZE_ql(beta))), statistics by block products tau' D tau (n^2 Q each); Bernoulli: joint Newton (diagonal Hessian block of the m part, Schur complement for beta, line search); once warm, one Newton step per EM iteration during the screening of starts (tolerance 5e-3 on J) and a full-Newton polish of the selected fits to the tight tolerance.
+- Starts: spectral embedding of the residual of the one-block covariate fit (dense), then splits, merges and random starts as without covariates.
+- Dense memory: Net 3 + p matrices, per thread 3 matrices. Limits: note above 1e6 cells, refused above 9e6 (about 3000 actors).
+### Results of milestone 3 (macOS, Stata 17 BE; R sbm 1.0.0, blockmodels 1.2.1)
+- Nine fixtures (dev/ref_cov.R) vs sbm with fast = FALSE: same Q, ARI 1.0000; ICL at the selected Q equal to a relative 3e-8 (Bernoulli one-mode, Poisson, Gaussian, Gaussian and Poisson two-mode); coefficients equal to 3e-5; other Q never worse than R; the Bernoulli two-mode fixture cannot be compared on ICL (R's PL exceeds the maximal likelihood; coefficient 0.012 apart). One-block fits equal glm/lm to 1e-6. R treats missing ties as zeros for Bernoulli/Poisson covariates (nwsbm masks them).
+- Recovery (six planted settings incl. directed and missing ties): Q = 3, ARI 1.0, coefficients within 0.1 (one Bernoulli directed within 0.39).
+- Timing (one thread, load average about 4.5 on a shared machine): Bernoulli covariate n = 100, maxblocks(5): 9 s; n = 200: 38 s; Poisson 2 s / 11 s; Gaussian 0.8 s / 4.4 s. R (exact, n = 100, Q <= 4): 52 s.
+- 0.2.0 single-thread speed vs 0.1.0 measured side by side (same load): n = 200 0.63 vs 0.64 s, n = 500 4.40 vs 4.5 s, n = 1000 12.5 vs 12.6 s: no slowdown (the earlier gap was machine load). Against R at the same load: nwsbm 0.72 / 4.5 / 8.4 s (default restarts rule), R 1.06 / 6.5 / 27.4 s.
+- restarts rule (n > 500: 4, n > 1500: 2): n = 1000 fixture gives the same ICL as restarts(10).
