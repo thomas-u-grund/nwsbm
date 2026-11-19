@@ -23,7 +23,7 @@ program nwsbm, eclass
 		exit
 	}
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
-		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) ORDERblocks GENerate(string) replace noDISplay]
+		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST GREEDY ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) ORDERblocks GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
@@ -48,6 +48,14 @@ program nwsbm, eclass
 		error 198
 	}
 	local __exact = ("`icl'" == "exact")
+	if "`greedy'" != "" & !`__exact' {
+		di as error "greedy (the greedy search on the exact ICL) needs icl(exact)"
+		error 198
+	}
+	if "`greedy'" != "" & "`fast'" != "" {
+		di as error "greedy and fast cannot be combined"
+		error 198
+	}
 	if `__exact' & ("`model'" == "gaussian" | ("`model'" == "poisson" & "`degreecorrected'" == "") ) {
 		di as error "{p 0 0 2}icl(exact) is available for model(bernoulli) (one-mode networks) and for model(poisson) with degreecorrected (the models of R greed).{p_end}"
 		error 198
@@ -215,7 +223,7 @@ program nwsbm, eclass
 		}
 	}
 	tempname TAB PI AL BS AL2 BS2 BETA
-	local __fast = ("`fast'" != "")
+	local __fast = ("`fast'" != "") + 2 * ("`greedy'" != "")
 	local __dc = ("`degreecorrected'" != "")
 	local __ord = ("`orderblocks'" != "")
 	capture noisily mata: (void) SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', `__ord', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
@@ -259,6 +267,7 @@ program nwsbm, eclass
 	ereturn local icltype "`icl'"
 	if `__exact' ereturn scalar ICLbm = `TAB'[`__row', cond(`__kind', 8, 7)]
 	ereturn scalar ncov = `__p'
+	ereturn local greedy = cond("`greedy'" != "", "yes", "no")
 	if `__p' > 0 {
 		matrix colnames `BETA' = `__cnames'
 		matrix rownames `BETA' = beta

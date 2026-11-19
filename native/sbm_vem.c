@@ -70,7 +70,7 @@ typedef struct { int *p, *j; double *v; } Csr;
 
 typedef struct {
 	int kind;                /* 0 one-mode (SBM), 1 two-mode (LBM) */
-	int n, n2, directed, model, dc;
+	int n, n2, directed, model, dc, greedy;
 	Csr ao, ai, mo, mi;      /* one-mode: adjacency out/in, missing out/in (undirected: in == out); two-mode: rows -> columns and columns -> rows */
 	int nmiss;
 	double ndata;            /* observed pairs (one-mode: ordered if directed, unordered if not; two-mode: observed cells) */
@@ -1255,6 +1255,253 @@ static double exact_icl(const Net *g, const Fit *f) {
 	return icl;
 }
 
+/* ====================================================================================================================
+   Greedy search on the exact ICL (icl(exact) with the option greedy; R greed: hybrid of node swaps and merges). A partition keeps its block counts c1 (c2),
+   the block-pair tie sums X (K1 x K2; one-mode: ordered pairs, symmetric for undirected networks) and the value xicl() of the part of the exact ICL
+   that depends on the partition. Moves: a node to another block (never emptying a block), until no move improves the criterion; merges of two blocks;
+   a cascade from the largest to the smallest number of blocks takes, for every number of blocks, the better of the polished VEM partition and the
+   polished best merge of the solution with one more block.
+   ==================================================================================================================== */
+#define LBETA(x, cc) (lgamma(1 + (x)) + lgamma(1 + (cc) - (x)) - lgamma(2 + (cc)))
+/* labels term + emission term; the terms that do not depend on the partition (degree factorials etc.) are left out */
+static double xicl(const Net *g, int K1, int K2, const double *c1, const double *c2, const double *X) {
+	int k, l; double s = 0, nl = 0;
+	if (g->kind) {
+		double *dr = calloc(K1, sizeof(double)), *dc = calloc(K2, sizeof(double)), p;
+		for (k = 0; k < K1; k++) for (l = 0; l < K2; l++) { double x = X[(size_t)k * K2 + l]; dr[k] += x; dc[l] += x; nl += x; }
+		p = nl / ((double)g->n * g->n2);
+		for (k = 0; k < K1; k++) s += lgamma(c1[k]) - lgamma(c1[k] + dr[k]) + dr[k] * log(c1[k]);
+		for (l = 0; l < K2; l++) s += lgamma(c2[l]) - lgamma(c2[l] + dc[l]) + dc[l] * log(c2[l]);
+		for (k = 0; k < K1; k++) for (l = 0; l < K2; l++) { double x = X[(size_t)k * K2 + l]; s += lgamma(x + 1) - (x + 1) * log(p * c1[k] * c2[l] + 1); }
+		s += lgamma((double)K1) - lgamma((double)g->n + K1) + lgamma((double)K2) - lgamma((double)g->n2 + K2);
+		for (k = 0; k < K1; k++) s += lgamma(c1[k] + 1);
+		for (l = 0; l < K2; l++) s += lgamma(c2[l] + 1);
+		free(dr); free(dc);
+		return s;
+	}
+	if (g->model == 0) {
+		for (k = 0; k < K1; k++) for (l = 0; l < K1; l++) {
+			double x = X[(size_t)k * K1 + l];
+			if (g->directed) s += LBETA(x, c1[k] * c1[l]);
+			else if (k < l) s += LBETA(x, c1[k] * c1[l]);
+			else if (k == l && c1[k] > 1) s += LBETA(x / 2, c1[k] * (c1[k] - 1) / 2);
+		}
+	} else {
+		double *dout = calloc(K1, sizeof(double)), *din = calloc(K1, sizeof(double)), p;
+		for (k = 0; k < K1; k++) for (l = 0; l < K1; l++) { double x = X[(size_t)k * K1 + l]; dout[k] += x; din[l] += x; nl += x; }
+		p = nl / ((double)g->n * g->n);
+		for (k = 0; k < K1; k++) s += lgamma(c1[k]) - lgamma(c1[k] + din[k]) + din[k] * log(c1[k]);
+		if (g->directed) {
+			for (k = 0; k < K1; k++) s += lgamma(c1[k]) - lgamma(c1[k] + dout[k]) + dout[k] * log(c1[k]);
+			for (k = 0; k < K1; k++) for (l = 0; l < K1; l++) { double x = X[(size_t)k * K1 + l]; s += lgamma(x + 1) - (x + 1) * log(p * c1[k] * c1[l] + 1); }
+		} else {
+			for (k = 0; k < K1; k++) for (l = 0; l <= k; l++) {
+				double x = X[(size_t)k * K1 + l];
+				if (k == l) { if (c1[k] > 1) s += lgamma(x / 2 + 1) - (x / 2 + 1) * log(p * c1[k] * (c1[k] - 1) / 2 + 1); }
+				else s += lgamma(x + 1) - (x + 1) * log(p * c1[k] * c1[l] + 1);
+			}
+		}
+		free(dout); free(din);
+	}
+	s += lgamma((double)K1);
+	for (k = 0; k < K1; k++) s += lgamma(c1[k] + 1);
+	s -= lgamma((double)g->n + K1);
+	return s;
+}
+#undef LBETA
+
+typedef struct { int K1, K2; int *l1, *l2; double *c1, *c2, *X; double val; } Part;   /* one-mode: l2 = l1, c2 = c1, K2 = K1 */
+static void part_free(Part *P) { free(P->l1); if (P->l2 != P->l1) free(P->l2); free(P->c1); if (P->c2 != P->c1) free(P->c2); free(P->X); memset(P, 0, sizeof(*P)); }
+/* statistics of the labels l1 (and l2); every block must be non-empty (returns 0 otherwise) */
+static int part_make(const Net *g, Part *P, int K1, int K2, const int *a, const int *b) {
+	int i, k; long e; int n1 = g->n, n2 = g->kind ? g->n2 : g->n;
+	memset(P, 0, sizeof(*P));
+	P->K1 = K1; P->K2 = g->kind ? K2 : K1;
+	P->l1 = dupl(a, n1); P->l2 = g->kind ? dupl(b, n2) : P->l1;
+	P->c1 = calloc(K1, sizeof(double)); P->c2 = g->kind ? calloc(P->K2, sizeof(double)) : P->c1;
+	P->X = calloc((size_t)K1 * P->K2, sizeof(double));
+	for (i = 0; i < n1; i++) P->c1[P->l1[i]] += 1;
+	if (g->kind) for (i = 0; i < n2; i++) P->c2[P->l2[i]] += 1;
+	for (k = 0; k < K1; k++) if (P->c1[k] < 1) { part_free(P); return 0; }
+	if (g->kind) for (k = 0; k < P->K2; k++) if (P->c2[k] < 1) { part_free(P); return 0; }
+	for (i = 0; i < n1; i++) for (e = g->ao.p[i]; e < g->ao.p[i + 1]; e++) P->X[(size_t)P->l1[i] * P->K2 + P->l2[g->ao.j[e]]] += g->ao.v[e];
+	P->val = xicl(g, P->K1, P->K2, P->c1, P->c2, P->X);
+	return 1;
+}
+/* moves one node of a side (0: rows / the nodes of a one-mode network, 1: columns) from block a to block b (sgn = 1) or back (sgn = -1);
+   oc / ic: ties of the node to the blocks of the other side (out-ties, in-ties) */
+static void part_delta(Part *P, int onemode, int side, int a, int b, const double *oc, const double *ic, double sgn) {
+	int l, k, K2 = P->K2, K1 = P->K1;
+	if (side == 0) {
+		for (l = 0; l < K2; l++) { P->X[(size_t)a * K2 + l] -= sgn * oc[l]; P->X[(size_t)b * K2 + l] += sgn * oc[l]; }
+		if (onemode) for (k = 0; k < K1; k++) { P->X[(size_t)k * K2 + a] -= sgn * ic[k]; P->X[(size_t)k * K2 + b] += sgn * ic[k]; }
+		P->c1[a] -= sgn; P->c1[b] += sgn;
+	} else {
+		for (k = 0; k < K1; k++) { P->X[(size_t)k * K2 + a] -= sgn * ic[k]; P->X[(size_t)k * K2 + b] += sgn * ic[k]; }
+		P->c2[a] -= sgn; P->c2[b] += sgn;
+	}
+}
+/* swap passes until no node move improves the criterion; returns the number of moves */
+static int part_swap(const Net *g, Part *P, int maxpass) {
+	int pass, moves = 0, side, i, l, nn, K, n1 = g->n, n2 = g->kind ? g->n2 : g->n;
+	double *oc = malloc(sizeof(double) * (P->K1 + P->K2 + 1)), *ic = malloc(sizeof(double) * (P->K1 + P->K2 + 1));
+	long e;
+	for (pass = 0; pass < maxpass; pass++) {
+		int pm = 0;
+		for (side = 0; side < (g->kind ? 2 : 1); side++) {
+			int *lab = side ? P->l2 : P->l1; double *cnt = side ? P->c2 : P->c1;
+			nn = side ? n2 : n1; K = side ? P->K2 : P->K1;
+			for (i = 0; i < nn; i++) {
+				int a = lab[i], b, bb = -1; double bv = P->val;
+				if (cnt[a] <= 1) continue;
+				if (!g->kind) {
+					for (l = 0; l < K; l++) oc[l] = ic[l] = 0;
+					for (e = g->ao.p[i]; e < g->ao.p[i + 1]; e++) oc[P->l1[g->ao.j[e]]] += g->ao.v[e];
+					for (e = g->ai.p[i]; e < g->ai.p[i + 1]; e++) ic[P->l1[g->ai.j[e]]] += g->ai.v[e];
+				} else if (side == 0) {
+					for (l = 0; l < P->K2; l++) oc[l] = 0;
+					for (e = g->ao.p[i]; e < g->ao.p[i + 1]; e++) oc[P->l2[g->ao.j[e]]] += g->ao.v[e];
+				} else {
+					for (l = 0; l < P->K1; l++) ic[l] = 0;
+					for (e = g->ai.p[i]; e < g->ai.p[i + 1]; e++) ic[P->l1[g->ai.j[e]]] += g->ai.v[e];
+				}
+				for (b = 0; b < K; b++) {
+					double v;
+					if (b == a) continue;
+					part_delta(P, !g->kind, side, a, b, oc, ic, 1.0);
+					v = xicl(g, P->K1, P->K2, P->c1, P->c2, P->X);
+					part_delta(P, !g->kind, side, a, b, oc, ic, -1.0);
+					if (v > bv + 1e-9 * (1 + fabs(bv))) { bv = v; bb = b; }
+				}
+				if (bb >= 0) { part_delta(P, !g->kind, side, a, bb, oc, ic, 1.0); lab[i] = bb; P->val = bv; pm++; }
+			}
+		}
+		moves += pm;
+		if (pm == 0) break;
+	}
+	free(oc); free(ic);
+	return moves;
+}
+/* best merge of two blocks of a side (0 rows, 1 columns; one-mode: both at once); returns 0 if there is none; the merged partition is made in *out */
+static int part_merge_best(const Net *g, const Part *P, int side, Part *out) {
+	int a, b, k, l, K1 = P->K1, K2 = P->K2, onemode = !g->kind, bestA = -1, bestB = -1, n1 = g->n, n2 = g->kind ? g->n2 : g->n, i, ok;
+	double bv = -1e300; int *m1, *m2 = NULL;
+	int K = side ? K2 : K1;
+	int rmerge = (onemode || side == 0), cmerge = (onemode || side == 1);
+	int nK1 = rmerge ? K1 - 1 : K1, nK2 = cmerge ? K2 - 1 : K2;
+	if (K < 2) return 0;
+	for (a = 0; a < K; a++) for (b = a + 1; b < K; b++) {
+		double *Xn = calloc((size_t)nK1 * nK2, sizeof(double)), *cn1 = calloc(nK1, sizeof(double)), *cn2 = calloc(nK2, sizeof(double)), v;
+		int *r = malloc(sizeof(int) * K1), *c = malloc(sizeof(int) * K2);
+		for (k = 0; k < K1; k++) { int t = k; if (rmerge) { if (t == b) t = a; if (t > b) t--; } r[k] = t; }
+		for (l = 0; l < K2; l++) { int t = l; if (cmerge) { if (t == b) t = a; if (t > b) t--; } c[l] = t; }
+		for (k = 0; k < K1; k++) for (l = 0; l < K2; l++) Xn[(size_t)r[k] * nK2 + c[l]] += P->X[(size_t)k * K2 + l];
+		for (k = 0; k < K1; k++) cn1[r[k]] += P->c1[k];
+		if (onemode) v = xicl(g, nK1, nK2, cn1, cn1, Xn);
+		else { for (l = 0; l < K2; l++) cn2[c[l]] += P->c2[l]; v = xicl(g, nK1, nK2, cn1, cn2, Xn); }
+		if (v > bv) { bv = v; bestA = a; bestB = b; }
+		free(Xn); free(cn1); free(cn2); free(r); free(c);
+	}
+	if (bestA < 0) return 0;
+	m1 = malloc(sizeof(int) * n1);
+	for (i = 0; i < n1; i++) { int t = P->l1[i]; if (rmerge) { if (t == bestB) t = bestA; if (t > bestB) t--; } m1[i] = t; }
+	if (!onemode) {
+		m2 = malloc(sizeof(int) * n2);
+		for (i = 0; i < n2; i++) { int t = P->l2[i]; if (cmerge) { if (t == bestB) t = bestA; if (t > bestB) t--; } m2[i] = t; }
+	}
+	ok = part_make(g, out, nK1, nK2, m1, m2);
+	free(m1); free(m2);
+	return ok;
+}
+/* relabels lab (n labels in 0..K-1) so that the used labels are 0..K'-1; returns K' */
+static int compact_labels(int *lab, int n, int K) {
+	int *map = malloc(sizeof(int) * K), i, k, m = 0;
+	for (k = 0; k < K; k++) map[k] = -1;
+	for (i = 0; i < n; i++) if (map[lab[i]] < 0) map[lab[i]] = m++;
+	for (i = 0; i < n; i++) lab[i] = map[lab[i]];
+	free(map);
+	return m;
+}
+static int part_better(const Part *a, const Part *b) { return a->val > b->val + 1e-9 * (1 + fabs(b->val)); }
+
+/* writes the hard partition into the fit (one-hot memberships) and recomputes parameters, bounds and the criteria at it */
+static void fit_set_part(const Net *g, Fit *f, const Part *P, Work *w) {
+	tau_from_labels(f->tau, g->n, P->K1, P->l1);
+	if (g->kind) tau_from_labels(f->tau2, g->n2, P->K2, P->l2);
+	f->PL = g->kind ? m_step_lbm(g, f, w) : m_step_sbm(g, f, w);
+	f->J = f->PL + f->H;
+	f->npar = npar_of(g, f->Q, f->Q2);
+	f->icl = icl_of(g, f);
+}
+/* one-mode: greedy search for 1..Qtop (best[Q], have[Q] hold the VEM fits; the fits of Qmin..Qout are replaced by the hard greedy partitions) */
+static void greedy_sbm(const Net *g, Fit *best, const int *have, int Qmin, int Qout, int Qtop) {
+	int Q, n = g->n, *lab = malloc(sizeof(int) * n);
+	Part cur, cand, mp; int havecur = 0;
+	Work w; long cap = (long)n * (Qtop + 1) + 1;
+	if (!work_alloc(&w, cap, g)) { free(lab); return; }
+	memset(&cur, 0, sizeof(cur));
+	for (Q = Qtop; Q >= 1; Q--) {
+		Part sol; int have_sol = 0, have_old = 0; double vold = 0;
+		memset(&sol, 0, sizeof(sol));
+		if (have[Q]) {
+			int Kc;
+			hard_labels(best[Q].tau, n, Q, lab);
+			Kc = compact_labels(lab, n, Q);
+			if (part_make(g, &cand, Kc, Kc, lab, NULL)) {
+				have_old = 1; vold = cand.val;     /* the criterion of the plain fit (blocks that lost all members are dropped, as in the plain exact ICL) */
+				if (Kc == Q) { part_swap(g, &cand, 50); sol = cand; have_sol = 1; } else part_free(&cand);
+			}
+		}
+		if (havecur) {
+			if (part_merge_best(g, &cur, 0, &mp)) {
+				part_swap(g, &mp, 50);
+				if (!have_sol || part_better(&mp, &sol)) { if (have_sol) part_free(&sol); sol = mp; have_sol = 1; }
+				else part_free(&mp);
+			}
+			part_free(&cur); havecur = 0;
+		}
+		if (have_sol) {
+			cur = sol; havecur = 1;
+			if (Q >= Qmin && Q <= Qout && (!have_old || cur.val >= vold - 1e-9 * (1 + fabs(vold)))) fit_set_part(g, &best[Q], &cur, &w);
+		}
+	}
+	if (havecur) part_free(&cur);
+	work_free(&w); free(lab);
+}
+/* two-mode: grid cells (Q1, Q2), best / have indexed by CELL = (Q1 - 1) * Q2max + (Q2 - 1) */
+static void greedy_lbm(const Net *g, Fit *best, const int *have, int Q1min, int Q1max, int Q2min, int Q2max) {
+	int a, b, n1 = g->n, n2 = g->n2, *la = malloc(sizeof(int) * n1), *lb = malloc(sizeof(int) * n2);
+	Part *sol = calloc((size_t)Q1max * Q2max, sizeof(Part)); int *hs = calloc((size_t)Q1max * Q2max, sizeof(int));
+	Work w; long cap = (long)(n1 > n2 ? n1 : n2) * (Q1max > Q2max ? Q1max : Q2max) + 1;
+	#define CELL(x, y) ((long)((x) - 1) * Q2max + ((y) - 1))
+	if (!work_alloc(&w, cap, g)) { free(la); free(lb); free(sol); free(hs); return; }
+	for (a = Q1max; a >= 1; a--) for (b = Q2max; b >= 1; b--) {
+		Part cand, mp, bestp; int hb = 0;
+		int have_old = 0; double vold = 0;
+		if (have[CELL(a, b)]) {
+			int Ka, Kb;
+			hard_labels(best[CELL(a, b)].tau, n1, a, la); hard_labels(best[CELL(a, b)].tau2, n2, b, lb);
+			Ka = compact_labels(la, n1, a); Kb = compact_labels(lb, n2, b);
+			if (part_make(g, &cand, Ka, Kb, la, lb)) {
+				have_old = 1; vold = cand.val;
+				if (Ka == a && Kb == b) { part_swap(g, &cand, 50); bestp = cand; hb = 1; } else part_free(&cand);
+			}
+		}
+		if (a < Q1max && hs[CELL(a + 1, b)] && part_merge_best(g, &sol[CELL(a + 1, b)], 0, &mp)) {
+			part_swap(g, &mp, 50);
+			if (!hb || part_better(&mp, &bestp)) { if (hb) part_free(&bestp); bestp = mp; hb = 1; } else part_free(&mp);
+		}
+		if (b < Q2max && hs[CELL(a, b + 1)] && part_merge_best(g, &sol[CELL(a, b + 1)], 1, &mp)) {
+			part_swap(g, &mp, 50);
+			if (!hb || part_better(&mp, &bestp)) { if (hb) part_free(&bestp); bestp = mp; hb = 1; } else part_free(&mp);
+		}
+		if (hb) { sol[CELL(a, b)] = bestp; hs[CELL(a, b)] = 1; if (a >= Q1min && b >= Q2min && (!have_old || bestp.val >= vold - 1e-9 * (1 + fabs(vold)))) fit_set_part(g, &best[CELL(a, b)], &bestp, &w); }
+	}
+	for (a = 0; a < Q1max * Q2max; a++) if (hs[a]) part_free(&sol[a]);
+	#undef CELL
+	work_free(&w); free(la); free(lb); free(sol); free(hs);
+}
+
 /* polishes a screened fit: full Newton M steps and the tight EM tolerance, starting from its own memberships */
 static void polish_fit(const Net *g, Fit *f, Work *w) {
 	if (!(g->p && g->model == 0)) return;
@@ -1322,6 +1569,7 @@ static int run_sbm(Net *g, int Qmin, int Qout, int restarts, int nthr, int fast,
 			res = eval_starts(g, &st, Q, 0, nthr); reduce_best(res, st.cnt, &best[Q], &have[Q]); starts_free(&st);
 		}
 	}
+	if (g->greedy) greedy_sbm(g, best, have, Qmin, Qout, Qmax);
 	if (g->p && g->model == 0) {
 		Work pw; long mx = g->n > g->n2 ? g->n : g->n2;
 		if (work_alloc(&pw, mx * Qmax + 1, g)) { for (Q = Qmin; Q <= Qout; Q++) polish_fit(g, &best[Q], &pw); work_free(&pw); }
@@ -1413,6 +1661,7 @@ static int run_lbm(Net *g, int Q1min, int Q1max, int Q2min, int Q2max, int resta
 			starts_free(&st);
 		}
 	}
+	if (g->greedy) greedy_lbm(g, best, have, Q1min, Q1max, Q2min, Q2max);
 	if (g->p && g->model == 0) {
 		Work pw; long mx = g->n > g->n2 ? g->n : g->n2, mq = Q1max > Q2max ? Q1max : Q2max;
 		if (work_alloc(&pw, mx * mq + 1, g)) { for (a = Q1min; a <= Q1max; a++) for (b = Q2min; b <= Q2max; b++) polish_fit(g, &best[CELL(a, b)], &pw); work_free(&pw); }
@@ -1542,6 +1791,8 @@ STDLL stata_call(int argc, char *argv[]) {
 		else for (k = Qmin; k <= Qmax; k++) tot += fit_len(&g, (int)k, 0);
 		out = malloc(sizeof(double) * tot);
 		if (!out) return 909;
+		g.greedy = ((fast & 2) && !g.nmiss && !g.p && ((kind && dc && model == 1) || (!kind && ((model == 0 && !dc) || (model == 1 && dc))))) ? 1 : 0;
+		fast &= 1;
 		if (fast && restarts > 2) restarts = 2;
 		rc = kind ? run_lbm(&g, Qmin, Qmax, Q2min, Q2max, restarts, nthr, fast, &rng, out) : run_sbm(&g, Qmin, Qmax, restarts, nthr, fast, &rng, out);
 		if (!rc) for (outn = 0; outn < tot; outn++) SF_vstore(2, (ST_int)(1 + outn), out[outn]);
