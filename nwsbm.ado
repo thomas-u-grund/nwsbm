@@ -23,7 +23,7 @@ program nwsbm, eclass
 		exit
 	}
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
-		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST GREEDY ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) ORDERblocks GENerate(string) replace noDISplay]
+		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST GREEDY BLOCKVar ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) ORDERblocks GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
@@ -42,6 +42,10 @@ program nwsbm, eclass
 		error 198
 	}
 	if `sigma2' == -1 local sigma2 0
+	if "`blockvar'" != "" & ("`model'" != "gaussian" | `sigma2' > 0 | "`degreecorrected'" != "") {
+		di as error "blockvar needs model(gaussian) and cannot be combined with sigma2() or degreecorrected"
+		error 198
+	}
 	if "`icl'" == "" local icl "blockmodels"
 	if !inlist("`icl'", "blockmodels", "exact") {
 		di as error "icl() must be blockmodels or exact"
@@ -67,6 +71,10 @@ program nwsbm, eclass
 	local __anycov = ("`covariates'`absdiff'`same'`signeddiff'" != "")
 	if `__anycov' & "`degreecorrected'" != "" {
 		di as error "degreecorrected cannot be combined with covariates"
+		error 198
+	}
+	if `__anycov' & "`blockvar'" != "" {
+		di as error "blockvar cannot be combined with covariates"
 		error 198
 	}
 	if `__anycov' & `__exact' {
@@ -226,7 +234,8 @@ program nwsbm, eclass
 	local __fast = ("`fast'" != "") + 2 * ("`greedy'" != "")
 	local __dc = ("`degreecorrected'" != "")
 	local __ord = ("`orderblocks'" != "")
-	capture noisily mata: (void) SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', `__ord', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
+	local __bvar = ("`blockvar'" != "")
+	capture noisily mata: (void) SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', `__ord', `__bvar', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
 	local __rc = _rc
 	mata: st_local("__nmiss", strofreal(sum(__nwsbm_y :>= .) / (1 + (!`__dir' & !`__kind'))))
 	capture mata: mata drop __nwsbm_y __nwsbm_x
@@ -267,6 +276,7 @@ program nwsbm, eclass
 	ereturn local icltype "`icl'"
 	if `__exact' ereturn scalar ICLbm = `TAB'[`__row', cond(`__kind', 8, 7)]
 	ereturn scalar ncov = `__p'
+	ereturn local blockvar = cond(`__bvar', "yes", "no")
 	ereturn local greedy = cond("`greedy'" != "", "yes", "no")
 	if `__p' > 0 {
 		matrix colnames `BETA' = `__cnames'
@@ -311,6 +321,14 @@ program nwsbm, eclass
 	}
 	matrix colnames `AL' = `__bn'
 	matrix colnames `BS' = `__bn'
+	if `__bvar' {
+		tempname S2B
+		matrix `S2B' = __nwsbm_S2
+		capture matrix drop __nwsbm_S2
+		matrix rownames `S2B' = `__bn'
+		matrix colnames `S2B' = `=cond(`__kind', "`__bn2'", "`__bn'")'
+		ereturn matrix sigma2_block = `S2B'
+	}
 	ereturn matrix pi = `PI'
 	ereturn matrix alpha = `AL'
 	ereturn matrix blocksize = `BS'
@@ -367,7 +385,8 @@ program _nwsbm_display
 	di as text "Network: " as result "`e(network)'" as text _col(60) "Blocks" _col(70) "= " as result %9.0g `q' cond(`two', " x " + string(e(Q2)), "")
 	di as text _col(60) "ICL" _col(70) "= " as result %9.2f e(ICL)
 	di as text _col(60) "Lower bound J" _col(70) "= " as result %9.2f e(J)
-	if "`e(model)'" == "gaussian" di as text _col(60) "Variance" _col(70) "= " as result %9.4g e(sigma2)
+	if "`e(model)'" == "gaussian" & "`e(blockvar)'" == "yes" di as text _col(60) "Pooled variance" _col(70) "= " as result %9.4g e(sigma2)
+	else if "`e(model)'" == "gaussian" di as text _col(60) "Variance" _col(70) "= " as result %9.4g e(sigma2)
 	tempname T
 	matrix `T' = e(ICLtable)
 	local c0 = cond(`two', 3, 2)
@@ -411,6 +430,10 @@ program _nwsbm_display
 	if e(ncov) > 0 local what "`what' (all covariates 0)"
 	di as text "`what', from the row block to the column block:"
 	matrix list e(pi), noheader format(%9.4f)
+	if "`e(blockvar)'" == "yes" {
+		di as text "Block variances, from the row block to the column block:"
+		matrix list e(sigma2_block), noheader format(%9.4f)
+	}
 	if e(ncov) > 0 {
 		local lk = cond("`e(model)'" == "bernoulli", "logit", cond("`e(model)'" == "poisson", "log", "identity"))
 		di

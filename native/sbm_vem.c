@@ -70,7 +70,9 @@ typedef struct { int *p, *j; double *v; } Csr;
 
 typedef struct {
 	int kind;                /* 0 one-mode (SBM), 1 two-mode (LBM) */
-	int n, n2, directed, model, dc, greedy;
+	int n, n2, directed, model, dc, greedy, bvar;
+	Csr ao2, ai2;            /* squared tie values (Gaussian model with block-specific variances) */
+	double s2floor;          /* lower bound of the block variances */
 	Csr ao, ai, mo, mi;      /* one-mode: adjacency out/in, missing out/in (undirected: in == out); two-mode: rows -> columns and columns -> rows */
 	int nmiss;
 	double ndata;            /* observed pairs (one-mode: ordered if directed, unordered if not; two-mode: observed cells) */
@@ -153,6 +155,7 @@ static void obs_sum_rect(const Net *g, const Csr *m, int nr, const double *X, in
 typedef struct {
 	int Q, Q2;                     /* Q2 = 0 for one-mode networks */
 	double *tau, *tau2, *pi, *alpha, *alpha2;
+	double *s2m;                   /* block variances (Gaussian model with block-specific variances) */
 	double *mq, *beta, *info;      /* covariate models: info = information matrix of beta (p x p, block parameters profiled out, conditional on the memberships); : block parameters on the link scale, regression coefficients */
 	int warm, nnewton;             /* nnewton: Newton steps per M step once warm (covariate Bernoulli model) */
 	double sigma2, PL, H, J, icl, npar;
@@ -165,12 +168,13 @@ static void fit_alloc(Fit *f, const Net *g, int Q, int Q2) {
 	f->tau2 = Q2 ? malloc(sizeof(double) * (long)g->n2 * Q2) : NULL;
 	f->pi = malloc(sizeof(double) * Q * c2); f->alpha = malloc(sizeof(double) * Q);
 	f->alpha2 = Q2 ? malloc(sizeof(double) * Q2) : NULL;
+	f->s2m = g->bvar ? calloc((size_t)Q * c2, sizeof(double)) : NULL;
 	f->sigma2 = 0; f->warm = 0; f->nnewton = 40;
 	f->mq = g->p ? calloc((size_t)Q * c2, sizeof(double)) : NULL;
 	f->beta = g->p ? calloc(g->p, sizeof(double)) : NULL;
 	f->info = g->p ? calloc((size_t)g->p * g->p, sizeof(double)) : NULL;
 }
-static void fit_free(Fit *f) { free(f->tau); free(f->tau2); free(f->pi); free(f->alpha); free(f->alpha2); free(f->mq); free(f->beta); free(f->info); f->tau = f->tau2 = f->pi = f->alpha = f->alpha2 = f->mq = f->beta = f->info = NULL; }
+static void fit_free(Fit *f) { free(f->tau); free(f->tau2); free(f->pi); free(f->alpha); free(f->alpha2); free(f->mq); free(f->beta); free(f->info); free(f->s2m); f->tau = f->tau2 = f->pi = f->alpha = f->alpha2 = f->mq = f->beta = f->info = f->s2m = NULL; }
 
 static void clamp_tau(double *tau, int n, int Q) {
 	double tol = TOL_P / n; int i, q;
@@ -182,21 +186,22 @@ static void clamp_tau(double *tau, int n, int Q) {
 	}
 }
 
-typedef struct { double *a1, *n1, *a2, *n2, *l1, *l2; double *Cc, *Ec, *Rm, *tmp; } Work;
+typedef struct { double *a1, *n1, *a2, *n2, *l1, *l2, *b1, *b2; double *Cc, *Ec, *Rm, *tmp; } Work;
 static int work_alloc(Work *w, long cap, const Net *g) {
 	long N = (long)g->n * g->n2;
 	w->a1 = malloc(sizeof(double) * cap); w->n1 = malloc(sizeof(double) * cap); w->a2 = malloc(sizeof(double) * cap);
 	w->n2 = malloc(sizeof(double) * cap); w->l1 = malloc(sizeof(double) * cap); w->l2 = malloc(sizeof(double) * cap);
 	w->tmp = malloc(sizeof(double) * cap);
+	w->b1 = g->bvar ? malloc(sizeof(double) * cap) : NULL; w->b2 = g->bvar ? malloc(sizeof(double) * cap) : NULL;
 	w->Cc = w->Ec = w->Rm = NULL;
 	if (g->p) { w->Cc = malloc(sizeof(double) * N); w->Ec = malloc(sizeof(double) * N); w->Rm = malloc(sizeof(double) * N); }
-	return w->a1 && w->n1 && w->a2 && w->n2 && w->l1 && w->l2 && w->tmp && (!g->p || (w->Cc && w->Ec && w->Rm));
+	return w->a1 && w->n1 && w->a2 && w->n2 && w->l1 && w->l2 && w->tmp && (!g->bvar || (w->b1 && w->b2)) && (!g->p || (w->Cc && w->Ec && w->Rm));
 }
-static void work_free(Work *w) { free(w->a1); free(w->n1); free(w->a2); free(w->n2); free(w->l1); free(w->l2); free(w->tmp); free(w->Cc); free(w->Ec); free(w->Rm); }
+static void work_free(Work *w) { free(w->a1); free(w->n1); free(w->a2); free(w->n2); free(w->l1); free(w->l2); free(w->tmp); free(w->b1); free(w->b2); free(w->Cc); free(w->Ec); free(w->Rm); }
 
 /* model part of PL at the maximiser for the block statistics ZA (sum of y) and ZO (number of observed cells, degree weighted for the degree-corrected model);
    fills the parameter matrix pi (probability / rate / mean) and the variance */
-static double mpart(const Net *g, int cells, const double *ZA, const double *ZO, double *pi, double *sigma2) {
+static double mpart(const Net *g, int cells, const double *ZA, const double *ZO, const double *ZY, double *pi, double *sigma2, double *s2m) {
 	int k; double pl = 0;
 	if (g->model == 0) {
 		for (k = 0; k < cells; k++) {
@@ -213,6 +218,18 @@ static double mpart(const Net *g, int cells, const double *ZA, const double *ZO,
 			if (ZA[k] > 0) pl += ZA[k] * log(lam);
 			pl -= lam * ZO[k];
 		}
+	} else if (g->bvar) {
+		double rtot = 0;
+		for (k = 0; k < cells; k++) {
+			double mu = ZO[k] > 0 ? ZA[k] / ZO[k] : 0.0, r = ZY[k] - 2 * mu * ZA[k] + mu * mu * ZO[k], s2;
+			if (r < 0) r = 0;
+			s2 = ZO[k] > 0 ? r / ZO[k] : g->s2floor;
+			if (s2 < g->s2floor) s2 = g->s2floor;
+			pi[k] = mu; s2m[k] = s2; rtot += r;
+			pl += -0.5 * ZO[k] * log(2 * M_PI * s2) - r / (2 * s2);
+		}
+		*sigma2 = rtot / g->nobs;
+		if (*sigma2 < 1e-12) *sigma2 = 1e-12;
 	} else {
 		double resid = g->sumy2, s2;
 		for (k = 0; k < cells; k++) {
@@ -230,7 +247,7 @@ static double mpart(const Net *g, int cells, const double *ZA, const double *ZO,
 }
 
 /* E-step coefficients: log f(a, nn; q, l) = a U + nn V for a = sum of y, nn = number of observed cells (weighted) */
-static void uv_fill(const Net *g, const Fit *f, int cells, double *U, double *V) {
+static void uv_fill(const Net *g, const Fit *f, int cells, double *U, double *V, double *W) {
 	int k;
 	for (k = 0; k < cells; k++) {
 		double p = f->pi[k];
@@ -240,6 +257,9 @@ static void uv_fill(const Net *g, const Fit *f, int cells, double *U, double *V)
 		} else if (g->model == 1) {
 			if (p < LOGFLOOR) p = LOGFLOOR;
 			U[k] = log(p); V[k] = -p;
+		} else if (g->bvar) {
+			double s2 = f->s2m[k];
+			U[k] = p / s2; V[k] = -p * p / (2 * s2) - 0.5 * log(2 * M_PI * s2); W[k] = -1 / (2 * s2);
 		} else {
 			U[k] = p / f->sigma2; V[k] = -p * p / (2 * f->sigma2);
 		}
@@ -251,35 +271,37 @@ static double lg(double a) { return log(a > LOGFLOOR ? a : LOGFLOOR); }
 /* ---- one-mode ---- */
 static double m_step_sbm(const Net *g, Fit *f, Work *w) {
 	int n = g->n, Q = f->Q, i, q, l; double pl = 0;
-	double *ZA = calloc(Q * Q, sizeof(double)), *ZO = calloc(Q * Q, sizeof(double));
+	double *ZA = calloc(Q * Q, sizeof(double)), *ZO = calloc(Q * Q, sizeof(double)), *ZY = g->bvar ? calloc(Q * Q, sizeof(double)) : NULL;
 	spmm(&g->ao, n, f->tau, Q, w->a1, 1, NULL);
 	obs_sum(g, &g->mo, f->tau, Q, w->n1, g->dc ? g->wi : NULL);
+	if (g->bvar) spmm(&g->ao2, n, f->tau, Q, w->b1, 1, NULL);
 	for (i = 0; i < n; i++) {
 		double own = g->dc ? g->wo[i] : 1.0;
 		for (q = 0; q < Q; q++) {
 			double t = f->tau[(long)i * Q + q];
-			for (l = 0; l < Q; l++) { ZA[q * Q + l] += t * w->a1[(long)i * Q + l]; ZO[q * Q + l] += own * t * w->n1[(long)i * Q + l]; }
+			for (l = 0; l < Q; l++) { ZA[q * Q + l] += t * w->a1[(long)i * Q + l]; ZO[q * Q + l] += own * t * w->n1[(long)i * Q + l]; if (g->bvar) ZY[q * Q + l] += t * w->b1[(long)i * Q + l]; }
 		}
 	}
 	for (q = 0; q < Q; q++) { double s = 0; for (i = 0; i < n; i++) s += f->tau[(long)i * Q + q]; f->alpha[q] = s / n; }
-	pl = mpart(g, Q * Q, ZA, ZO, f->pi, &f->sigma2);
+	pl = mpart(g, Q * Q, ZA, ZO, ZY, f->pi, &f->sigma2, f->s2m);
 	if (!g->directed) pl /= 2;
 	pl += g->cst;
 	for (i = 0; i < n; i++) for (q = 0; q < Q; q++) pl += f->tau[(long)i * Q + q] * lg(f->alpha[q]);
 	{ double h = 0; for (i = 0; i < n * Q; i++) if (f->tau[i] > 0) h -= f->tau[i] * log(f->tau[i]); f->H = h; }
-	free(ZA); free(ZO);
+	free(ZA); free(ZO); free(ZY);
 	return pl;
 }
 
 static void e_step_sbm(const Net *g, Fit *f, Work *w) {
 	int n = g->n, Q = f->Q, i, q, l, it;
-	double *U = malloc(sizeof(double) * Q * Q), *V = malloc(sizeof(double) * Q * Q);
-	uv_fill(g, f, Q * Q, U, V);
+	double *U = malloc(sizeof(double) * Q * Q), *V = malloc(sizeof(double) * Q * Q), *W = malloc(sizeof(double) * Q * Q);
+	uv_fill(g, f, Q * Q, U, V, W);
 	for (it = 0; it < 10; it++) {
 		double step = 0;
 		spmm(&g->ao, n, f->tau, Q, w->a1, 1, NULL);
 		obs_sum(g, &g->mo, f->tau, Q, w->n1, g->dc ? g->wi : NULL);
-		if (g->directed) { spmm(&g->ai, n, f->tau, Q, w->a2, 1, NULL); obs_sum(g, &g->mi, f->tau, Q, w->n2, g->dc ? g->wo : NULL); }
+		if (g->bvar) spmm(&g->ao2, n, f->tau, Q, w->b1, 1, NULL);
+		if (g->directed) { spmm(&g->ai, n, f->tau, Q, w->a2, 1, NULL); obs_sum(g, &g->mi, f->tau, Q, w->n2, g->dc ? g->wo : NULL); if (g->bvar) spmm(&g->ai2, n, f->tau, Q, w->b2, 1, NULL); }
 		for (i = 0; i < n; i++) {
 			double mx = -1e300, s = 0, *z = w->l1 + (long)i * Q;
 			double own_o = g->dc ? g->wo[i] : 1.0, own_i = g->dc ? g->wi[i] : 1.0;
@@ -288,6 +310,7 @@ static void e_step_sbm(const Net *g, Fit *f, Work *w) {
 				for (l = 0; l < Q; l++) {
 					v += w->a1[(long)i * Q + l] * U[q * Q + l] + own_o * w->n1[(long)i * Q + l] * V[q * Q + l];
 					if (g->directed) v += w->a2[(long)i * Q + l] * U[l * Q + q] + own_i * w->n2[(long)i * Q + l] * V[l * Q + q];
+					if (g->bvar) { v += w->b1[(long)i * Q + l] * W[q * Q + l]; if (g->directed) v += w->b2[(long)i * Q + l] * W[l * Q + q]; }
 				}
 				z[q] = v; if (v > mx) mx = v;
 			}
@@ -299,45 +322,47 @@ static void e_step_sbm(const Net *g, Fit *f, Work *w) {
 		memcpy(f->tau, w->l1, sizeof(double) * (long)n * Q);
 		if (step <= TOL_F) break;
 	}
-	free(U); free(V);
+	free(U); free(V); free(W);
 }
 
 /* ---- two-mode ---- */
 static double m_step_lbm(const Net *g, Fit *f, Work *w) {
 	int n1 = g->n, n2 = g->n2, Q1 = f->Q, Q2 = f->Q2, i, q, l; double pl;
-	double *ZA = calloc(Q1 * Q2, sizeof(double)), *ZO = calloc(Q1 * Q2, sizeof(double));
+	double *ZA = calloc(Q1 * Q2, sizeof(double)), *ZO = calloc(Q1 * Q2, sizeof(double)), *ZY = g->bvar ? calloc(Q1 * Q2, sizeof(double)) : NULL;
 	spmm(&g->ao, n1, f->tau2, Q2, w->a1, 1, NULL);
+	if (g->bvar) spmm(&g->ao2, n1, f->tau2, Q2, w->b1, 1, NULL);
 	obs_sum_rect(g, &g->mo, n1, f->tau2, n2, Q2, w->n1, g->dc ? g->wi : NULL);
 	for (i = 0; i < n1; i++) for (q = 0; q < Q1; q++) {
 		double t = f->tau[(long)i * Q1 + q], own = g->dc ? g->wo[i] : 1.0;
-		for (l = 0; l < Q2; l++) { ZA[q * Q2 + l] += t * w->a1[(long)i * Q2 + l]; ZO[q * Q2 + l] += own * t * w->n1[(long)i * Q2 + l]; }
+		for (l = 0; l < Q2; l++) { ZA[q * Q2 + l] += t * w->a1[(long)i * Q2 + l]; ZO[q * Q2 + l] += own * t * w->n1[(long)i * Q2 + l]; if (g->bvar) ZY[q * Q2 + l] += t * w->b1[(long)i * Q2 + l]; }
 	}
 	for (q = 0; q < Q1; q++) { double s = 0; for (i = 0; i < n1; i++) s += f->tau[(long)i * Q1 + q]; f->alpha[q] = s / n1; }
 	for (l = 0; l < Q2; l++) { double s = 0; for (i = 0; i < n2; i++) s += f->tau2[(long)i * Q2 + l]; f->alpha2[l] = s / n2; }
-	pl = mpart(g, Q1 * Q2, ZA, ZO, f->pi, &f->sigma2) + g->cst;
+	pl = mpart(g, Q1 * Q2, ZA, ZO, ZY, f->pi, &f->sigma2, f->s2m) + g->cst;
 	for (i = 0; i < n1; i++) for (q = 0; q < Q1; q++) pl += f->tau[(long)i * Q1 + q] * lg(f->alpha[q]);
 	for (i = 0; i < n2; i++) for (l = 0; l < Q2; l++) pl += f->tau2[(long)i * Q2 + l] * lg(f->alpha2[l]);
 	{ double h = 0; for (i = 0; i < n1 * Q1; i++) if (f->tau[i] > 0) h -= f->tau[i] * log(f->tau[i]);
 	  for (i = 0; i < n2 * Q2; i++) if (f->tau2[i] > 0) h -= f->tau2[i] * log(f->tau2[i]); f->H = h; }
-	free(ZA); free(ZO);
+	free(ZA); free(ZO); free(ZY);
 	return pl;
 }
 
 static void e_step_lbm(const Net *g, Fit *f, Work *w) {
 	int n1 = g->n, n2 = g->n2, Q1 = f->Q, Q2 = f->Q2, i, q, l, it;
-	double *U = malloc(sizeof(double) * Q1 * Q2), *V = malloc(sizeof(double) * Q1 * Q2);
-	uv_fill(g, f, Q1 * Q2, U, V);
+	double *U = malloc(sizeof(double) * Q1 * Q2), *V = malloc(sizeof(double) * Q1 * Q2), *W = malloc(sizeof(double) * Q1 * Q2);
+	uv_fill(g, f, Q1 * Q2, U, V, W);
 	for (it = 0; it < 10; it++) {
 		double step = 0, s, mx;
 		spmm(&g->ao, n1, f->tau2, Q2, w->a1, 1, NULL);
 		obs_sum_rect(g, &g->mo, n1, f->tau2, n2, Q2, w->n1, g->dc ? g->wi : NULL);
 		spmm(&g->ai, n2, f->tau, Q1, w->a2, 1, NULL);
 		obs_sum_rect(g, &g->mi, n2, f->tau, n1, Q1, w->n2, g->dc ? g->wo : NULL);
+		if (g->bvar) { spmm(&g->ao2, n1, f->tau2, Q2, w->b1, 1, NULL); spmm(&g->ai2, n2, f->tau, Q1, w->b2, 1, NULL); }
 		for (i = 0; i < n1; i++) {
 			double *z = w->l1 + (long)i * Q1, own_r = g->dc ? g->wo[i] : 1.0; mx = -1e300; s = 0;
 			for (q = 0; q < Q1; q++) {
 				double v = lg(f->alpha[q]);
-				for (l = 0; l < Q2; l++) v += w->a1[(long)i * Q2 + l] * U[q * Q2 + l] + own_r * w->n1[(long)i * Q2 + l] * V[q * Q2 + l];
+				for (l = 0; l < Q2; l++) v += w->a1[(long)i * Q2 + l] * U[q * Q2 + l] + own_r * w->n1[(long)i * Q2 + l] * V[q * Q2 + l] + (g->bvar ? w->b1[(long)i * Q2 + l] * W[q * Q2 + l] : 0.0);
 				z[q] = v; if (v > mx) mx = v;
 			}
 			for (q = 0; q < Q1; q++) { z[q] = exp(z[q] - mx); s += z[q]; }
@@ -347,7 +372,7 @@ static void e_step_lbm(const Net *g, Fit *f, Work *w) {
 			double *z = w->l2 + (long)i * Q2, own_c = g->dc ? g->wi[i] : 1.0; mx = -1e300; s = 0;
 			for (l = 0; l < Q2; l++) {
 				double v = lg(f->alpha2[l]);
-				for (q = 0; q < Q1; q++) v += w->a2[(long)i * Q1 + q] * U[q * Q2 + l] + own_c * w->n2[(long)i * Q1 + q] * V[q * Q2 + l];
+				for (q = 0; q < Q1; q++) v += w->a2[(long)i * Q1 + q] * U[q * Q2 + l] + own_c * w->n2[(long)i * Q1 + q] * V[q * Q2 + l] + (g->bvar ? w->b2[(long)i * Q1 + q] * W[q * Q2 + l] : 0.0);
 				z[l] = v; if (v > mx) mx = v;
 			}
 			for (l = 0; l < Q2; l++) { z[l] = exp(z[l] - mx); s += z[l]; }
@@ -360,7 +385,7 @@ static void e_step_lbm(const Net *g, Fit *f, Work *w) {
 		memcpy(f->tau2, w->l2, sizeof(double) * (long)n2 * Q2);
 		if (step <= TOL_F) break;
 	}
-	free(U); free(V);
+	free(U); free(V); free(W);
 }
 
 /* ====================================================================================================================
@@ -771,7 +796,8 @@ static double m_step_cov(const Net *g, Fit *f, Work *w) {
 
 static double npar_of(const Net *g, int Q, int Q2) {
 	double np = g->kind ? (double)Q * Q2 : (g->directed ? (double)Q * Q : (double)Q * (Q + 1) / 2);
-	if (g->model == 2 && g->sigma2fix <= 0) np += 1;
+	if (g->model == 2 && g->bvar) np *= 2;
+	else if (g->model == 2 && g->sigma2fix <= 0) np += 1;
 	return np + g->p;
 }
 static double icl_of(const Net *g, const Fit *f) {
@@ -1520,11 +1546,13 @@ static void write_fit(const Net *g, const Fit *b, double *out, long *off) {
 	memcpy(out + o, b->alpha, sizeof(double) * Q1); o += Q1;
 	if (Q2) { memcpy(out + o, b->alpha2, sizeof(double) * Q2); o += Q2; }
 	if (g->p) { memcpy(out + o, b->beta, sizeof(double) * g->p); o += g->p; memcpy(out + o, b->info, sizeof(double) * g->p * g->p); o += (long)g->p * g->p; }
+	if (g->bvar) { memcpy(out + o, b->s2m, sizeof(double) * Q1 * c2); o += (long)Q1 * c2; }
 	*off = o;
 }
 static long fit_len(const Net *g, int Q1, int Q2) {
 	long l = 9 + (long)g->n * Q1 + (long)Q1 * (Q2 ? Q2 : Q1) + Q1;
 	if (Q2) l += (long)g->n2 * Q2 + Q2;
+	if (g->bvar) l += (long)Q1 * (Q2 ? Q2 : Q1);
 	return l + g->p + (long)g->p * g->p;
 }
 
@@ -1690,7 +1718,7 @@ STDLL stata_call(int argc, char *argv[]) {
 	free(buf);
 	if (code != 10) { SF_error("sbm_vem: unknown code (plugin and package versions do not match)\n"); return 198; }
 	{
-		ST_double v; int n, n2, directed, model, Qmin, Qmax, Q2min, Q2max, restarts, nthr, kind, dc, fast, ncov; unsigned long long seed; double s2fix;
+		ST_double v; int n, n2, directed, model, Qmin, Qmax, Q2min, Q2max, restarts, nthr, kind, dc, fast, ncov, bvar; unsigned long long seed; double s2fix;
 		long i, j, ma = 0, mm = 0, cap, k, outn = 0, tot;
 		int *ar, *ac, *mr, *mc; double *av, *out; Net g; Rng rng; int ncol;
 		SF_vdata(1, 1, &v); if (v != SBM_PROTOCOL) { SF_error("sbm_vem: the model block is invalid (plugin and package versions do not match?)\n"); return 198; }
@@ -1707,19 +1735,20 @@ STDLL stata_call(int argc, char *argv[]) {
 		SF_vdata(1, 12, &v); n2 = (int)v;
 		SF_vdata(1, 13, &v); Q2min = (int)v;
 		SF_vdata(1, 14, &v); Q2max = (int)v;
-		SF_vdata(1, 15, &v); dc = (int)v;
+		SF_vdata(1, 15, &v); bvar = ((int)v >> 1) & 1; dc = (int)v & 1;
 		SF_vdata(1, 16, &v); fast = (int)v;
 		SF_vdata(1, 17, &v); ncov = (int)v;
 		if (!kind) { n2 = n; Q2min = Q2max = 0; }
 		if (model < 0 || model > 2 || n < 2 || Qmin < 1 || Qmax < Qmin || Qmax > n || ncov < 0 || ncov > MAXCOV || L != HDR + (long)(1 + ncov) * n * n2) { SF_error("sbm_vem: the model block is invalid\n"); return 198; }
 		if (kind && (n2 < 2 || Q2min < 1 || Q2max < Q2min || Q2max > n2)) { SF_error("sbm_vem: the model block is invalid\n"); return 198; }
 		if (dc && ncov > 0) { SF_error("sbm_vem: degree correction cannot be combined with covariates\n"); return 198; }
+		if (bvar && (model != 2 || dc || ncov > 0 || s2fix > 0)) { SF_error("sbm_vem: block-specific variances need the Gaussian model without covariates and without a fixed variance\n"); return 198; }
 		if (dc && model != 1) { SF_error("sbm_vem: degree correction needs the Poisson model\n"); return 198; }
 		if (!sp_init()) return 909;
 		rng_seed(&rng, seed);
 		cap = 1024;
 		ar = malloc(sizeof(int) * cap); ac = malloc(sizeof(int) * cap); mr = malloc(sizeof(int) * cap); mc = malloc(sizeof(int) * cap); av = malloc(sizeof(double) * cap);
-		memset(&g, 0, sizeof(g)); g.kind = kind; g.n = n; g.n2 = n2; g.directed = kind ? 0 : directed; g.model = model; g.dc = dc; g.sigma2fix = s2fix; g.p = ncov;
+		memset(&g, 0, sizeof(g)); g.kind = kind; g.n = n; g.n2 = n2; g.directed = kind ? 0 : directed; g.model = model; g.dc = dc; g.bvar = bvar; g.sigma2fix = s2fix; g.p = ncov;
 		ncol = n2;
 		if (ncov > 0) {
 			long NN = (long)n * n2;
@@ -1777,6 +1806,15 @@ STDLL stata_call(int argc, char *argv[]) {
 		if (kind) { csr_build(&g.ai, n2, ac, ar, av, ma); csr_build(&g.mi, n2, mc, mr, NULL, mm); }
 		else if (directed) { csr_build(&g.ai, n, ac, ar, av, ma); csr_build(&g.mi, n, mc, mr, NULL, mm); }
 		else { g.ai = g.ao; g.mi = g.mo; }
+		if (bvar) {
+			double *av2 = malloc(sizeof(double) * (ma > 0 ? ma : 1)); long q2; double va;
+			for (q2 = 0; q2 < ma; q2++) av2[q2] = av[q2] * av[q2];
+			csr_build(&g.ao2, n, ar, ac, av2, ma);
+			if (kind) csr_build(&g.ai2, n2, ac, ar, av2, ma); else if (directed) csr_build(&g.ai2, n, ac, ar, av2, ma); else g.ai2 = g.ao2;
+			free(av2);
+			va = g.sumy2 / g.nobs - g.ybar * g.ybar;
+			g.s2floor = 1e-3 * (va > 0 ? va : 1.0) + 1e-12;
+		}
 		if (dc) {
 			long e;
 			int sep = (directed || kind);
@@ -1799,6 +1837,7 @@ STDLL stata_call(int argc, char *argv[]) {
 		free(out); free(ar); free(ac); free(mr); free(mc); free(av);
 		csr_free(&g.ao); csr_free(&g.mo);
 		if (kind || directed) { csr_free(&g.ai); csr_free(&g.mi); }
+		if (bvar) { csr_free(&g.ao2); if (kind || directed) csr_free(&g.ai2); }
 		if (dc) { if (directed || kind) free(g.wi); free(g.wo); }
 		if (ncov > 0) { int a; free(g.Y); free(g.Mf); for (a = 0; a < ncov; a++) free(g.X[a]); free(g.X); free(g.sxy); free(g.sxx); free(g.Rres); }
 	}

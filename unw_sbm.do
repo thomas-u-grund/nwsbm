@@ -258,11 +258,12 @@ real matrix _sbm_inv(real matrix info)
 }
 
 // length of one plugin record
-real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scalar q2, real scalar p)
+real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scalar q2, real scalar p, real scalar bv)
 {
 	real scalar l
 	l = 9 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1 + p + p * p
 	if (q2 > 0) l = l + n2 * q2 + q2
+	if (bv) l = l + q1 * (q2 > 0 ? q2 : q1)
 	return(l)
 }
 
@@ -271,13 +272,13 @@ real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scal
 //   two-mode network); the membership probabilities stay in __nwsbm_tau (and __nwsbm_tau2); scalars __nwsbm_Q, __nwsbm_Q2, __nwsbm_sigma2
 // returns the selected Q (rows block count for a two-mode network)
 real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real scalar kind, real scalar dc, real scalar qmin, real scalar qmax,
-	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact, real scalar ord, real matrix X,
+	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact, real scalar ord, real scalar bvar, real matrix X,
 	string scalar tabname, string scalar piname, string scalar alphaname, string scalar sizename, string scalar alpha2name, string scalar size2name, string scalar betaname)
 {
 	class SbmNat scalar nat
 	real colvector out
 	real scalar n1, n2, k, l, off, nfit, best, i, qq, qq2, tot, bestoff, np
-	real matrix tab, pm, info, vm
+	real matrix tab, pm, info, vm, s2m
 	real rowvector hs, hs2, mx, alv, al2v, bv
 	real colvector perm
 	external real matrix __nwsbm_tau, __nwsbm_tau2
@@ -291,13 +292,13 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 	}
 	tot = 0
 	if (kind) {
-		for (k = qmin; k <= qmax; k++) for (l = q2min; l <= q2max; l++) tot = tot + sbm_reclen(n1, n2, k, l, np)
+		for (k = qmin; k <= qmax; k++) for (l = q2min; l <= q2max; l++) tot = tot + sbm_reclen(n1, n2, k, l, np, bvar)
 	}
 	else {
-		for (k = qmin; k <= qmax; k++) tot = tot + sbm_reclen(n1, n1, k, 0, np)
+		for (k = qmin; k <= qmax; k++) tot = tot + sbm_reclen(n1, n1, k, 0, np, bvar)
 	}
 	nat.open()
-	out = nat.run(y, directed, model, kind, dc, qmin, qmax, q2min, q2max, seed, restarts, s2fix, threads, fast, X, tot)
+	out = nat.run(y, directed, model, kind, dc + 2 * bvar, qmin, qmax, q2min, q2max, seed, restarts, s2fix, threads, fast, X, tot)
 	nat.close()
 	nfit = kind ? (qmax - qmin + 1) * (q2max - q2min + 1) : (qmax - qmin + 1)
 	tab = J(nfit, kind ? (exact ? 8 : 7) : (exact ? 7 : 6), .)
@@ -319,7 +320,7 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 			best = i
 			bestoff = off
 		}
-		off = off + sbm_reclen(n1, n2, k, l, np)
+		off = off + sbm_reclen(n1, n2, k, l, np, bvar)
 	}
 	qq = out[bestoff + 7]
 	qq2 = out[bestoff + 8]
@@ -351,10 +352,15 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 		bv = out[(off + 1)::(off + np)]'
 		off = off + np
 		info = colshape(out[(off + 1)::(off + np * np)], np)
+		off = off + np * np
 		vm = _sbm_inv(info)
 		if (vm[1, 1] >= .) st_matrix("__nwsbm_V", J(np, np, .))
 		else st_matrix("__nwsbm_V", vm)
 		st_matrix(betaname, bv)
+	}
+	if (bvar) {
+		if (kind) s2m = colshape(out[(off + 1)::(off + qq * qq2)], qq2)
+		else s2m = colshape(out[(off + 1)::(off + qq * qq)], qq)
 	}
 	hs = J(1, qq, 0)
 	for (k = 1; k <= n1; k++) {
@@ -377,15 +383,18 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 		alv = alv[perm]
 		hs = hs[perm]
 		pm = kind ? pm[perm, .] : pm[perm, perm]
+		if (bvar) s2m = kind ? s2m[perm, .] : s2m[perm, perm]
 		if (kind) {
 			perm = order((-hs2', (1::qq2)), (1, 2))
 			__nwsbm_tau2 = __nwsbm_tau2[., perm]
 			al2v = al2v[perm]
 			hs2 = hs2[perm]
 			pm = pm[., perm]
+			if (bvar) s2m = s2m[., perm]
 		}
 	}
 	st_matrix(piname, pm)
+	if (bvar) st_matrix("__nwsbm_S2", s2m)
 	st_matrix(alphaname, alv)
 	st_matrix(sizename, hs)
 	if (kind) {
