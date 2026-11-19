@@ -23,7 +23,7 @@ program nwsbm, eclass
 		exit
 	}
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
-		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -1) THReads(integer 0) FAST ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) GENerate(string) replace noDISplay]
+		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
@@ -65,7 +65,7 @@ program nwsbm, eclass
 		di as error "icl(exact) is not available with covariates"
 		error 198
 	}
-	if `restarts' != -1 & (`restarts' < 0 | `restarts' > 1000) {
+	if `restarts' != -999 & (`restarts' < 0 | `restarts' > 1000) {
 		di as error "restarts() must be between 0 and 1000"
 		error 198
 	}
@@ -133,8 +133,8 @@ program nwsbm, eclass
 		error 198
 	}
 	* default number of extra random starts per number of blocks: 10, fewer for large networks (the cost of every start grows with the number of ties)
-	local __rdef = (`restarts' == -1)
-	if `restarts' == -1 {
+	local __rdef = (`restarts' == -999)
+	if `restarts' == -999 {
 		local __big = max(`__n1', `__n2')
 		local restarts = cond(`__big' > 1500, 2, cond(`__big' > 500, 4, 10))
 	}
