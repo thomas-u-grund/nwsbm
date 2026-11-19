@@ -4,13 +4,17 @@ d Thomas U. Grund, RWTH Aachen University, www.grund.co.uk
 d email: thomas.u.grund@gmail.com
 d GPL-3. Requires the core package nwcommands.
 d Requires nwcommands (core), version 3.26.0 or later
-d Version: 0.1.0
+d Version: 0.2.0
 d Distribution-Date: 19nov2026
 f nwsbm.ado
 f nwsbm_version.ado
 f _nwsbm_libcheck.ado
 f nwsbm.sthlp
 f nwsbm.dlg
+f nwsbmplot.ado
+f nwsbmplot.sthlp
+f nwsbmplot.dlg
+f nwsbm_estat.ado
 f lib/lnwsbm.mlib
 f lib/plugins/macos/sbm_vem_macos.plugin
 f lib/plugins/windows/sbm_vem_windows.plugin

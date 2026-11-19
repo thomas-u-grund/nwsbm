@@ -8,3 +8,10 @@
 - **Mata `{ a; b }` on one line** is a syntax error in a do-file (`invalid expression`): write one statement per line inside braces.
 - **Mata library is built with Stata 17** (`lib/build.do` refuses newer Stata).
 - **Plugin protocol check:** the Mata layer asks the plugin for its protocol number (code 99); after changing the layout of the input block raise `SBM_PROTOCOL` in `native/sbm_vem.c` and `SBM_PROTOCOL_NEEDED()` in `unw_sbm.do` together. Never shown to users.
+- **R sbm has no `dcsbm` and no covariates-free fixed variance.** `blockmodels` 1.2.1 / `sbm` 1.0.0 offer bernoulli, poisson, gaussian (one free common variance), ZIP and covariate versions; degree correction comes from `greed::DcSbm` (exact ICL, not comparable with the blockmodels ICL). `sigma2(#)` is an extension of nwsbm.
+- **greed's printed ICL uses the Dirichlet(1) marginal of the labels** (`lgamma(K) + sum lgamma(n_k + 1) - lgamma(N + K)`), not the `-log K + sum lgamma(n_k) - lgamma(N)` of the C++ code that is used internally for the merge path. `icl(exact)` reproduces the printed value.
+- **nwset puts the columns of a wide two-mode matrix into mode 1** and the rows into mode 2; `blocks(#1 #2)` follows this order (mode 1 first). R `estimateBipartiteSBM` has rows first. The test of the two-mode fixtures swaps the modes.
+- **Missing ties are Stata missing values in the plugin's input block** (not -1, which is a legal Gaussian value). A tie value is "absent" (0) only for Bernoulli/Poisson sparsity; Gaussian zeros are observed zeros and stay in the counts.
+- **Two-mode square matrices**: in test helpers a two-mode fixture with n1 == n2 must not be symmetrised or have its diagonal removed (`sbmt_loadv` with dir = -1).
+- **Mata classes of the core are not available while building lib/lnwsbm.mlib**: pass plain vectors (`get_modes()`) from the ado instead of a pointer to the network class.
+- **Machine load distorts the timing test.** Compare timings only on an idle machine (uptime load below 2).

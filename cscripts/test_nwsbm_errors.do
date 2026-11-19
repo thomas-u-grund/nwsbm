@@ -22,9 +22,25 @@ sbmt_expect `=_rc' 198 "two block numbers (latent block model)"
 capture nwsbm g, blocks(2) maxblocks(4)
 sbmt_expect `=_rc' 198 "blocks() with maxblocks()"
 capture nwsbm g, model(poisson) blocks(2)
-sbmt_expect `=_rc' 198 "model(poisson) not available"
+sbmt_expect `=_rc' 0 "model(poisson) on a binary network (allowed, as R)"
 capture nwsbm g, model(gaussian) blocks(2)
-sbmt_expect `=_rc' 198 "model(gaussian) not available"
+sbmt_expect `=_rc' 0 "model(gaussian) on a binary network (allowed, as R)"
+capture nwsbm g, blocks(2) degreecorrected
+sbmt_expect `=_rc' 198 "degreecorrected needs the Poisson model"
+capture nwsbm g, model(poisson) blocks(2) sigma2(1)
+sbmt_expect `=_rc' 198 "sigma2() needs the Gaussian model"
+capture nwsbm g, model(gaussian) blocks(2) sigma2(-3)
+sbmt_expect `=_rc' 198 "negative sigma2()"
+capture nwsbm g, model(gaussian) blocks(2) icl(exact)
+sbmt_expect `=_rc' 198 "icl(exact) with the Gaussian model"
+capture nwsbm g, model(poisson) blocks(2) icl(exact)
+sbmt_expect `=_rc' 198 "icl(exact) with the plain Poisson model"
+capture nwsbm g, blocks(2) icl(foo)
+sbmt_expect `=_rc' 198 "unknown icl()"
+capture nwsbm g, blocks(2) threads(300)
+sbmt_expect `=_rc' 198 "threads() out of range"
+capture nwsbm g, blocks(2) maxblocks(3 3)
+sbmt_expect `=_rc' 198 "two maxblocks numbers on a one-mode network"
 capture nwsbm g, model(foo) blocks(2)
 sbmt_expect `=_rc' 198 "unknown model"
 capture nwsbm g, blocks(0)
@@ -53,7 +69,17 @@ gen a = _n
 gen b = mod(_n, 3) + 1
 nwset a b, twomode name(tm) replace
 capture nwsbm tm, blocks(2)
-sbmt_expect `=_rc' 198 "two-mode network"
+sbmt_expect `=_rc' 198 "two-mode network needs two block numbers"
+capture nwsbm tm, blocks(2 2) degreecorrected model(poisson)
+sbmt_expect `=_rc' 198 "degree correction on a two-mode network"
+capture nwsbm tm, blocks(9 2)
+sbmt_expect `=_rc' 198 "more blocks than actors of a mode"
+capture nwsbm tm, blocks(2 2) seed(3)
+sbmt_expect `=_rc' 0 "two-mode network, blocks(2 2)"
+if e(Q1) != 2 | e(Q2) != 2 | "`e(membership)'" != "LBM" {
+	di as error "FAIL: two-mode e() results"
+	global SBM_FAILS = ${SBM_FAILS} + 1
+}
 clear
 set obs 5
 gen double v1 = 0
@@ -70,7 +96,27 @@ replace v5 = 1 in 4
 replace v4 = 1 in 5
 nwset v1-v5, name(vn) undirected valued replace
 capture nwsbm vn, blocks(2)
-sbmt_expect `=_rc' 198 "valued network"
+sbmt_expect `=_rc' 198 "valued network with model(bernoulli)"
+capture nwsbm vn, blocks(2) model(poisson) seed(1)
+sbmt_expect `=_rc' 0 "valued network with model(poisson)"
+capture nwsbm vn, blocks(2) model(gaussian) sigma2(2) seed(1)
+sbmt_expect `=_rc' 0 "fixed variance"
+if abs(e(sigma2) - 2) > 1e-12 {
+	di as error "FAIL: fixed variance not kept"
+	global SBM_FAILS = ${SBM_FAILS} + 1
+}
+replace v2 = 0.5 in 1
+replace v1 = 0.5 in 2
+nwset v1-v5, name(vn2) undirected valued replace
+capture nwsbm vn2, blocks(2) model(poisson)
+sbmt_expect `=_rc' 198 "Poisson with non-integer ties"
+replace v2 = -1 in 1
+replace v1 = -1 in 2
+nwset v1-v5, name(vn3) undirected valued replace
+capture nwsbm vn3, blocks(2) model(poisson)
+sbmt_expect `=_rc' 198 "Poisson with negative ties"
+capture nwsbm vn3, blocks(2) model(gaussian) seed(1)
+sbmt_expect `=_rc' 0 "Gaussian with negative ties"
 clear
 set obs 2
 gen double v1 = 0
