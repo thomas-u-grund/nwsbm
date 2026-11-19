@@ -39,7 +39,7 @@
 #include <unistd.h>
 #endif
 
-#define SBM_PROTOCOL 4
+#define SBM_PROTOCOL 5
 #define HDR 17
 #define MAXCOV 32
 #define TOL_P 1e-1
@@ -153,7 +153,7 @@ static void obs_sum_rect(const Net *g, const Csr *m, int nr, const double *X, in
 typedef struct {
 	int Q, Q2;                     /* Q2 = 0 for one-mode networks */
 	double *tau, *tau2, *pi, *alpha, *alpha2;
-	double *mq, *beta;             /* covariate models: block parameters on the link scale, regression coefficients */
+	double *mq, *beta, *info;      /* covariate models: info = information matrix of beta (p x p, block parameters profiled out, conditional on the memberships); : block parameters on the link scale, regression coefficients */
 	int warm, nnewton;             /* nnewton: Newton steps per M step once warm (covariate Bernoulli model) */
 	double sigma2, PL, H, J, icl, npar;
 } Fit;
@@ -168,8 +168,9 @@ static void fit_alloc(Fit *f, const Net *g, int Q, int Q2) {
 	f->sigma2 = 0; f->warm = 0; f->nnewton = 40;
 	f->mq = g->p ? calloc((size_t)Q * c2, sizeof(double)) : NULL;
 	f->beta = g->p ? calloc(g->p, sizeof(double)) : NULL;
+	f->info = g->p ? calloc((size_t)g->p * g->p, sizeof(double)) : NULL;
 }
-static void fit_free(Fit *f) { free(f->tau); free(f->tau2); free(f->pi); free(f->alpha); free(f->alpha2); free(f->mq); free(f->beta); f->tau = f->tau2 = f->pi = f->alpha = f->alpha2 = f->mq = f->beta = NULL; }
+static void fit_free(Fit *f) { free(f->tau); free(f->tau2); free(f->pi); free(f->alpha); free(f->alpha2); free(f->mq); free(f->beta); free(f->info); f->tau = f->tau2 = f->pi = f->alpha = f->alpha2 = f->mq = f->beta = f->info = NULL; }
 
 static void clamp_tau(double *tau, int n, int Q) {
 	double tol = TOL_P / n; int i, q;
@@ -560,6 +561,7 @@ static double m_step_cov(const Net *g, Fit *f, Work *w) {
 			for (c = 0; c < cells; c++) if (ZO[c] > 0) tv[k] -= ZX[k * cells + c] * ZA[c] / ZO[c];
 			S[k * p + k] += 1e-12 * (fabs(S[k * p + k]) + 1);
 		}
+		for (k = 0; k < p * p; k++) f->info[k] = S[k];
 		if (!solve_lin(p, S, tv, bx)) for (k = 0; k < p; k++) bx[k] = f->beta[k];
 		for (k = 0; k < p; k++) f->beta[k] = bx[k];
 		sumres = g->sumy2;
@@ -575,6 +577,7 @@ static double m_step_cov(const Net *g, Fit *f, Work *w) {
 		s2 = g->sigma2fix > 0 ? g->sigma2fix : resid / g->nobs;
 		if (s2 < 1e-12) s2 = 1e-12;
 		f->sigma2 = s2;
+		for (k = 0; k < p * p; k++) f->info[k] *= half / s2;
 		pl = -0.5 * g->nobs * log(2 * M_PI * s2) - resid / (2 * s2);
 		for (c = 0; c < cells; c++) f->pi[c] = f->mq[c];
 		cov_refresh(g, f->beta, w);
@@ -628,6 +631,17 @@ static double m_step_cov(const Net *g, Fit *f, Work *w) {
 		}
 		cov_refresh(g, f->beta, w);
 		blockstat(w->Ec, n1, n2, t1, Q1, t2, Q2, w->tmp, ZE);
+		for (k = 0; k < p; k++) {
+			for (t = 0; t < N; t++) w->Rm[t] = w->Ec[t] * g->X[k][t];
+			blockstat(w->Rm, n1, n2, t1, Q1, t2, Q2, w->tmp, ZEX + k * cells);
+			for (kk = 0; kk <= k; kk++) {
+				double v = 0;
+				for (t = 0; t < N; t++) w->Rm[t] = w->Ec[t] * g->X[k][t] * g->X[kk][t];
+				blockstat(w->Rm, n1, n2, t1, Q1, t2, Q2, w->tmp, ZEXX + (k * p + kk) * cells);
+				for (c = 0; c < cells; c++) if (ZA[c] > 1e-12 && ZE[c] > 0) v += ZA[c] * (ZEXX[(k * p + kk) * cells + c] / ZE[c] - ZEX[k * cells + c] * ZEX[kk * cells + c] / (ZE[c] * ZE[c]));
+				f->info[k * p + kk] = f->info[kk * p + k] = v * half;
+			}
+		}
 		for (c = 0; c < cells; c++) {
 			double za = ZA[c] > 1e-12 ? ZA[c] : 1e-12;
 			f->mq[c] = ZE[c] > 0 ? log(za / ZE[c]) : 0.0;
@@ -679,6 +693,10 @@ static double m_step_cov(const Net *g, Fit *f, Work *w) {
 			  tp = gm; gm = gm2; gm2 = tp; tp = hm; hm = hm2; hm2 = tp; tp = gb; gb = gb2; gb2 = tp; tp = hbm; hbm = hbm2; hbm2 = tp; tp = hbb; hbb = hbb2; hbb2 = tp;
 			  if (ob < 1e-11 * (fabs(obj) + 1) && mxs * tt < 1e-6) break; }
 		}
+		{ /* information of beta at the final point (gm, hm, hbm, hbb belong to it): Schur complement of the block part */
+		  memcpy(S, hbb, sizeof(double) * p * p);
+		  for (c = 0; c < cells; c++) { double d = hm[c] + 1e-9; for (k = 0; k < p; k++) for (kk = 0; kk < p; kk++) S[k * p + kk] -= hbm[c * p + k] * hbm[c * p + kk] / d; }
+		  for (k = 0; k < p * p; k++) f->info[k] = S[k] * half; }
 		cov_refresh(g, f->beta, w);
 		pl = obj;
 		for (c = 0; c < cells; c++) f->pi[c] = 1 / (1 + exp(-f->mq[c]));
@@ -1150,13 +1168,13 @@ static void write_fit(const Net *g, const Fit *b, double *out, long *off) {
 	memcpy(out + o, b->pi, sizeof(double) * Q1 * c2); o += (long)Q1 * c2;
 	memcpy(out + o, b->alpha, sizeof(double) * Q1); o += Q1;
 	if (Q2) { memcpy(out + o, b->alpha2, sizeof(double) * Q2); o += Q2; }
-	if (g->p) { memcpy(out + o, b->beta, sizeof(double) * g->p); o += g->p; }
+	if (g->p) { memcpy(out + o, b->beta, sizeof(double) * g->p); o += g->p; memcpy(out + o, b->info, sizeof(double) * g->p * g->p); o += (long)g->p * g->p; }
 	*off = o;
 }
 static long fit_len(const Net *g, int Q1, int Q2) {
 	long l = 9 + (long)g->n * Q1 + (long)Q1 * (Q2 ? Q2 : Q1) + Q1;
 	if (Q2) l += (long)g->n2 * Q2 + Q2;
-	return l + g->p;
+	return l + g->p + (long)g->p * g->p;
 }
 
 static int run_sbm(Net *g, int Qmin, int Qout, int restarts, int nthr, int fast, Rng *rng, double *out) {

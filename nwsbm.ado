@@ -23,7 +23,7 @@ program nwsbm, eclass
 		exit
 	}
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
-		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) GENerate(string) replace noDISplay]
+		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) ORDERblocks GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
@@ -217,7 +217,8 @@ program nwsbm, eclass
 	tempname TAB PI AL BS AL2 BS2 BETA
 	local __fast = ("`fast'" != "")
 	local __dc = ("`degreecorrected'" != "")
-	capture noisily mata: (void) SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
+	local __ord = ("`orderblocks'" != "")
+	capture noisily mata: (void) SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', `__ord', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
 	local __rc = _rc
 	mata: st_local("__nmiss", strofreal(sum(__nwsbm_y :>= .) / (1 + (!`__dir' & !`__kind'))))
 	capture mata: mata drop __nwsbm_y __nwsbm_x
@@ -261,7 +262,18 @@ program nwsbm, eclass
 	if `__p' > 0 {
 		matrix colnames `BETA' = `__cnames'
 		matrix rownames `BETA' = beta
+		tempname VB SB
+		matrix `VB' = __nwsbm_V
+		capture matrix drop __nwsbm_V
+		matrix colnames `VB' = `__cnames'
+		matrix rownames `VB' = `__cnames'
+		matrix `SB' = `BETA'
+		forvalues j = 1/`__p' {
+			matrix `SB'[1, `j'] = cond(`VB'[`j', `j'] < ., sqrt(`VB'[`j', `j']), .)
+		}
 		ereturn matrix beta = `BETA'
+		ereturn matrix se_beta = `SB'
+		ereturn matrix V_beta = `VB'
 		ereturn local covariates "`__cnames'"
 	}
 	ereturn local degreecorrected = cond(`__dc', "yes", "no")
@@ -393,16 +405,26 @@ program _nwsbm_display
 		local lk = cond("`e(model)'" == "bernoulli", "logit", cond("`e(model)'" == "poisson", "log", "identity"))
 		di
 		di as text "Covariate coefficients (`lk' scale):"
-		di as text "{hline 13}{c TT}{hline 14}"
-		tempname B
+		di as text "{hline 13}{c TT}{hline 63}"
+		di as text %12s "" " {c |}" %12s "Coef." %12s "Std. err." %9s "z" %10s "P>|z|" %20s "[95% conf. interval]"
+		di as text "{hline 13}{c +}{hline 63}"
+		tempname B SE
 		matrix `B' = e(beta)
+		matrix `SE' = e(se_beta)
 		local cn : colnames `B'
 		local j = 0
 		foreach c of local cn {
 			local ++j
-			di as text %12s abbrev("`c'", 12) " {c |}" as result %13.5f `B'[1, `j']
+			local b = `B'[1, `j']
+			local se = `SE'[1, `j']
+			if `se' < . {
+				local z = `b' / `se'
+				di as text %12s abbrev("`c'", 12) " {c |}" as result %12.5f `b' %12.5f `se' %9.2f `z' %10.3f 2 * normal(-abs(`z')) %10.5f `b' - invnormal(0.975) * `se' %10.5f `b' + invnormal(0.975) * `se'
+			}
+			else di as text %12s abbrev("`c'", 12) " {c |}" as result %12.5f `b' as text %12s "."
 		}
-		di as text "{hline 13}{c BT}{hline 14}"
+		di as text "{hline 13}{c BT}{hline 63}"
+		di as text "{p 0 0 2}Standard errors are conditional on the estimated block memberships (they do not reflect the uncertainty about the blocks).{p_end}"
 	}
 end
 

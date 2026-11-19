@@ -21,6 +21,7 @@ capture mata: mata drop SbmFit()
 capture mata: mata drop sbm_ymat()
 capture mata: mata drop SbmStore()
 capture mata: mata drop sbm_reclen()
+capture mata: mata drop _sbm_inv()
 capture mata: mata drop SbmPlotMatrix()
 capture mata: mata drop sbm_hard()
 capture mata: mata drop sbm_setidx()
@@ -67,7 +68,7 @@ real scalar SbmNativeAvailable()
 	return(fileexists(p))
 }
 
-real scalar SBM_PROTOCOL_NEEDED() return(4)
+real scalar SBM_PROTOCOL_NEEDED() return(5)
 
 class SbmNat {
 	real scalar isopen, L
@@ -246,11 +247,21 @@ real scalar sbm_pushvar(string scalar vname, string scalar type, real scalar kin
 	return(sbm_pushcov(A, kind, dir))
 }
 
+// inverse of a symmetric positive definite information matrix (missing matrix if it is singular)
+real matrix _sbm_inv(real matrix info)
+{
+	real matrix v
+
+	v = cholinv(0.5 * (info + info'))
+	if (any(v :>= .)) return(J(rows(info), cols(info), .))
+	return(v)
+}
+
 // length of one plugin record
 real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scalar q2, real scalar p)
 {
 	real scalar l
-	l = 9 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1 + p
+	l = 9 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1 + p + p * p
 	if (q2 > 0) l = l + n2 * q2 + q2
 	return(l)
 }
@@ -260,14 +271,15 @@ real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scal
 //   two-mode network); the membership probabilities stay in __nwsbm_tau (and __nwsbm_tau2); scalars __nwsbm_Q, __nwsbm_Q2, __nwsbm_sigma2
 // returns the selected Q (rows block count for a two-mode network)
 real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real scalar kind, real scalar dc, real scalar qmin, real scalar qmax,
-	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact, real matrix X,
+	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact, real scalar ord, real matrix X,
 	string scalar tabname, string scalar piname, string scalar alphaname, string scalar sizename, string scalar alpha2name, string scalar size2name, string scalar betaname)
 {
 	class SbmNat scalar nat
 	real colvector out
 	real scalar n1, n2, k, l, off, nfit, best, i, qq, qq2, tot, bestoff, np
-	real matrix tab, pm
-	real rowvector hs, mx
+	real matrix tab, pm, info, vm
+	real rowvector hs, hs2, mx, alv, al2v, bv
+	real colvector perm
 	external real matrix __nwsbm_tau, __nwsbm_tau2
 
 	n1 = rows(y)
@@ -330,29 +342,56 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 		off = off + qq * qq
 	}
 	st_matrix(tabname, tab)
-	st_matrix(piname, pm)
-	st_matrix(alphaname, out[(off + 1)::(off + qq)]')
+	alv = out[(off + 1)::(off + qq)]'
 	off = off + qq
 	if (kind) {
-		st_matrix(alpha2name, out[(off + 1)::(off + qq2)]')
+		al2v = out[(off + 1)::(off + qq2)]'
 		off = off + qq2
 	}
-	if (np > 0) st_matrix(betaname, out[(off + 1)::(off + np)]')
+	if (np > 0) {
+		bv = out[(off + 1)::(off + np)]'
+		off = off + np
+		info = colshape(out[(off + 1)::(off + np * np)], np)
+		vm = _sbm_inv(info)
+		if (vm[1, 1] >= .) st_matrix("__nwsbm_V", J(np, np, .))
+		else st_matrix("__nwsbm_V", vm)
+		st_matrix(betaname, bv)
+	}
 	hs = J(1, qq, 0)
 	for (k = 1; k <= n1; k++) {
 		mx = __nwsbm_tau[k, .]
 		i = (select(1..qq, mx :== max(mx)))[1]
 		hs[i] = hs[i] + 1
 	}
-	st_matrix(sizename, hs)
 	if (kind) {
-		hs = J(1, qq2, 0)
+		hs2 = J(1, qq2, 0)
 		for (k = 1; k <= n2; k++) {
 			mx = __nwsbm_tau2[k, .]
 			i = (select(1..qq2, mx :== max(mx)))[1]
-			hs[i] = hs[i] + 1
+			hs2[i] = hs2[i] + 1
 		}
-		st_matrix(size2name, hs)
+	}
+	if (ord) {
+		// blocks in decreasing order of their (hard) size; ties keep the original order
+		perm = order((-hs', (1::qq)), (1, 2))
+		__nwsbm_tau = __nwsbm_tau[., perm]
+		alv = alv[perm]
+		hs = hs[perm]
+		pm = kind ? pm[perm, .] : pm[perm, perm]
+		if (kind) {
+			perm = order((-hs2', (1::qq2)), (1, 2))
+			__nwsbm_tau2 = __nwsbm_tau2[., perm]
+			al2v = al2v[perm]
+			hs2 = hs2[perm]
+			pm = pm[., perm]
+		}
+	}
+	st_matrix(piname, pm)
+	st_matrix(alphaname, alv)
+	st_matrix(sizename, hs)
+	if (kind) {
+		st_matrix(alpha2name, al2v)
+		st_matrix(size2name, hs2)
 	}
 	return(qq)
 }
