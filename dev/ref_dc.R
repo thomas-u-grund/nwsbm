@@ -30,3 +30,7 @@ d <- plantdc(200, 4, FALSE, 0.10, 0.015, 0.7, 3, 43); write_all("dc_u_n200_Q4", 
 set.seed(44); n <- 100; z <- sample(rep(1:3, length.out = n)); P <- matrix(0.05, 3, 3); diag(P) <- c(0.5, 0.4, 0.3)
 A <- matrix(rbinom(n * n, 1, P[z, z]), n, n); A[lower.tri(A)] <- t(A)[lower.tri(A)]; diag(A) <- 0
 write_all("gr_sbm_u_n100_Q3", A, z, FALSE, Sbm(type = "undirected"))
+# directed binary SBM
+set.seed(45); n <- 100; z <- sample(rep(1:2, length.out = n)); P <- matrix(c(0.4, 0.05, 0.12, 0.3), 2, byrow = TRUE)
+A <- matrix(rbinom(n * n, 1, P[z, z]), n, n); diag(A) <- 0
+write_all("gr_sbm_d_n100_Q2", A, z, TRUE, Sbm(type = "directed"))

@@ -23,7 +23,7 @@ program nwsbm, eclass
 		exit
 	}
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
-		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer 10) THReads(integer 0) FAST GENerate(string) replace]
+		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer 10) THReads(integer 0) FAST ICL(string) GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
@@ -42,6 +42,16 @@ program nwsbm, eclass
 		error 198
 	}
 	if `sigma2' == -1 local sigma2 0
+	if "`icl'" == "" local icl "blockmodels"
+	if !inlist("`icl'", "blockmodels", "exact") {
+		di as error "icl() must be blockmodels or exact"
+		error 198
+	}
+	local __exact = ("`icl'" == "exact")
+	if `__exact' & ("`model'" == "gaussian" | ("`model'" == "poisson" & "`degreecorrected'" == "") ) {
+		di as error "{p 0 0 2}icl(exact) is available for model(bernoulli) and for model(poisson) with degreecorrected (the models of R greed).{p_end}"
+		error 198
+	}
 	if `__nb' >= 1 & `__nmx' >= 1 {
 		di as error "blocks() and maxblocks() cannot be combined"
 		error 198
@@ -168,7 +178,7 @@ program nwsbm, eclass
 	tempname TAB PI AL BS AL2 BS2
 	local __fast = ("`fast'" != "")
 	local __dc = ("`degreecorrected'" != "")
-	capture noisily mata: SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'")
+	capture noisily mata: SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'")
 	local __rc = _rc
 	mata: st_local("__nmiss", strofreal(sum(__nwsbm_y :>= .) / (1 + (!`__dir' & !`__kind'))))
 	capture mata: mata drop __nwsbm_y
@@ -206,9 +216,12 @@ program nwsbm, eclass
 	ereturn local estat_cmd "nwsbm_estat"
 	ereturn local model "`model'"
 	ereturn local network "`netname'"
+	ereturn local icltype "`icl'"
+	if `__exact' ereturn scalar ICLbm = `TAB'[`__row', 7]
 	ereturn local degreecorrected = cond(`__dc', "yes", "no")
 	ereturn local membership = cond(`__kind', "LBM", cond(`__dir', "SBM", "SBM_sym"))
 	if `__kind' matrix colnames `TAB' = Q1 Q2 ICL J PL H npar
+	else if `__exact' matrix colnames `TAB' = Q ICL J PL H npar ICLbm
 	else matrix colnames `TAB' = Q ICL J PL H npar
 	forvalues k = 1/`__q' {
 		local __bn `__bn' b`k'
@@ -235,7 +248,7 @@ program nwsbm, eclass
 	ereturn matrix blocksize = `BS'
 	ereturn matrix ICLtable = `TAB'
 	if "`generate'" != "" _nwsbm_generate `generate', `replace'
-	_nwsbm_display
+	if "`display'" != "nodisplay" _nwsbm_display
 end
 
 capture program drop _nwsbm_generate

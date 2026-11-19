@@ -18,7 +18,7 @@
  *   two-mode), 13 Q2min, 14 Q2max, 15 degree correction (0/1), 16 fast (0/1); then the n x n2 matrix, row major (missing ties are
  *   Stata missing values; the diagonal of a one-mode matrix is ignored).
  * Output (column v2, from row 1): one record per fit (one-mode: Q = Qmin..Qmax; two-mode: Q1 = Qmin..Qmax outer, Q2 = Q2min..Q2max inner):
- *   ICL, J, PL, H, npar, sigma2, Q1, Q2 (0 for one-mode), tau (n x Q1, row major), [tau2 (n2 x Q2)], pi (Q1 x Q2 or Q x Q), alpha (Q1), [alpha2 (Q2)].
+ *   ICL, J, PL, H, npar, sigma2, Q1, Q2 (0 for one-mode), exact ICL of the hard partition (-1e300 if not available), tau (n x Q1, row major), [tau2 (n2 x Q2)], pi (Q1 x Q2 or Q x Q), alpha (Q1), [alpha2 (Q2)].
  * Call: plugin call sbmvem v1 v2, "10 <L>" fits; "99 0" returns the protocol number in v2 row 1.
  * The starts of one Q are evaluated by independent threads; every start is deterministic given the seed, so results do not depend
  * on the number of threads.
@@ -36,7 +36,7 @@
 #include <unistd.h>
 #endif
 
-#define SBM_PROTOCOL 2
+#define SBM_PROTOCOL 3
 #define HDR 16
 #define TOL_P 1e-1
 #define TOL_F 1e-1
@@ -685,10 +685,66 @@ static void sbm_merges(const Net *g, const Fit *src, Starts *st) {
 	free(hard); free(pa); free(pb);
 }
 
+/* Exact ICL of the hard partition (conjugate priors, as R greed 0.6.2): Bernoulli stochastic block model (Beta(1,1) on the connectivities) and
+   Poisson degree-corrected block model (uniform degree parameters in each block, rate prior as greed's default p); Dirichlet(1) on the proportions.
+   Returns NaN for the other models. */
+static double exact_icl(const Net *g, const Fit *f) {
+	int n = g->n, Q = f->Q, i, k, l, K = 0, *lab, *map;
+	long e;
+	double *X, *cnt, *din, *dout, s = 0, icl = 0;
+	if (g->kind || g->nmiss || !((g->model == 0 && !g->dc) || (g->model == 1 && g->dc))) return NAN;
+	lab = malloc(sizeof(int) * n); map = malloc(sizeof(int) * Q);
+	hard_labels(f->tau, n, Q, lab);
+	cnt = calloc(Q, sizeof(double));
+	for (i = 0; i < n; i++) cnt[lab[i]] += 1;
+	for (k = 0; k < Q; k++) map[k] = cnt[k] > 0 ? K++ : -1;
+	free(cnt);
+	X = calloc((size_t)K * K, sizeof(double)); cnt = calloc(K, sizeof(double)); din = calloc(K, sizeof(double)); dout = calloc(K, sizeof(double));
+	for (i = 0; i < n; i++) cnt[map[lab[i]]] += 1;
+	for (i = 0; i < n; i++) for (e = g->ao.p[i]; e < g->ao.p[i + 1]; e++) X[(size_t)map[lab[i]] * K + map[lab[g->ao.j[e]]]] += g->ao.v[e];
+	for (k = 0; k < K; k++) for (l = 0; l < K; l++) { dout[k] += X[(size_t)k * K + l]; din[l] += X[(size_t)k * K + l]; }
+	if (g->model == 0) {
+		#define LB(x, cc) (lgamma(1 + (x)) + lgamma(1 + (cc) - (x)) + lgamma(2.0) - lgamma(1.0) - lgamma(1.0) - lgamma(2 + (cc)))
+		for (k = 0; k < K; k++) for (l = 0; l < K; l++) {
+			double x = X[(size_t)k * K + l];
+			if (g->directed) s += LB(x, cnt[k] * cnt[l]);
+			else if (k < l) s += LB(x, cnt[k] * cnt[l]);
+			else if (k == l && cnt[k] > 1) s += LB(x / 2, cnt[k] * (cnt[k] - 1) / 2);
+		}
+		#undef LB
+	} else {
+		double nl = 0, cden = 0, p, cst = 0;
+		for (i = 0; i < n; i++) for (e = g->ao.p[i]; e < g->ao.p[i + 1]; e++) { nl += g->ao.v[e]; cden += lgamma(g->ao.v[e] + 1); }
+		p = nl / ((double)n * n);
+		for (k = 0; k < K; k++) s += lgamma(cnt[k]) - lgamma(cnt[k] + din[k]) + din[k] * log(cnt[k]);
+		if (g->directed) {
+			for (k = 0; k < K; k++) s += lgamma(cnt[k]) - lgamma(cnt[k] + dout[k]) + dout[k] * log(cnt[k]);
+			for (k = 0; k < K; k++) for (l = 0; l < K; l++) { double x = X[(size_t)k * K + l]; s += lgamma(x + 1) - (x + 1) * log(p * cnt[k] * cnt[l] + 1); }
+			for (i = 0; i < n; i++) cst += lgamma(g->wo[i] + 1) + lgamma(g->wi[i] + 1);
+			cst += -cden + nl * log(p);
+		} else {
+			for (k = 0; k < K; k++) for (l = 0; l <= k; l++) {
+				double x = X[(size_t)k * K + l];
+				if (k == l) { if (cnt[k] > 1) s += lgamma(x / 2 + 1) - (x / 2 + 1) * log(p * cnt[k] * (cnt[k] - 1) / 2 + 1); }
+				else s += lgamma(x + 1) - (x + 1) * log(p * cnt[k] * cnt[l] + 1);
+			}
+			for (i = 0; i < n; i++) cst += lgamma(g->wo[i] + 1);
+			cst += -cden / 2 + (nl / 2) * log(p);
+		}
+		s += cst;
+	}
+	icl = s + lgamma((double)K);
+	for (k = 0; k < K; k++) icl += lgamma(cnt[k] + 1);
+	icl -= lgamma((double)n + K);
+	free(lab); free(map); free(X); free(cnt); free(din); free(dout);
+	return icl;
+}
+
 static void write_fit(const Net *g, const Fit *b, double *out, long *off) {
 	long o = *off;
 	int n = g->n, Q1 = b->Q, Q2 = b->Q2, c2 = Q2 ? Q2 : Q1;
 	out[o++] = b->icl; out[o++] = b->J; out[o++] = b->PL; out[o++] = b->H; out[o++] = b->npar; out[o++] = b->sigma2; out[o++] = Q1; out[o++] = Q2;
+	{ double ex = exact_icl(g, b); out[o++] = (ex == ex) ? ex : -1e300; }
 	memcpy(out + o, b->tau, sizeof(double) * (long)n * Q1); o += (long)n * Q1;
 	if (Q2) { memcpy(out + o, b->tau2, sizeof(double) * (long)g->n2 * Q2); o += (long)g->n2 * Q2; }
 	memcpy(out + o, b->pi, sizeof(double) * Q1 * c2); o += (long)Q1 * c2;
@@ -697,7 +753,7 @@ static void write_fit(const Net *g, const Fit *b, double *out, long *off) {
 	*off = o;
 }
 static long fit_len(const Net *g, int Q1, int Q2) {
-	long l = 8 + (long)g->n * Q1 + (long)Q1 * (Q2 ? Q2 : Q1) + Q1;
+	long l = 9 + (long)g->n * Q1 + (long)Q1 * (Q2 ? Q2 : Q1) + Q1;
 	if (Q2) l += (long)g->n2 * Q2 + Q2;
 	return l;
 }

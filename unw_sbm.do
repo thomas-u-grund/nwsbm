@@ -64,7 +64,7 @@ real scalar SbmNativeAvailable()
 	return(fileexists(p))
 }
 
-real scalar SBM_PROTOCOL_NEEDED() return(2)
+real scalar SBM_PROTOCOL_NEEDED() return(3)
 
 class SbmNat {
 	real scalar isopen, L
@@ -167,7 +167,7 @@ real scalar sbm_checkvalues(real matrix y, real scalar model)
 real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scalar q2)
 {
 	real scalar l
-	l = 8 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1
+	l = 9 + n1 * q1 + q1 * (q2 > 0 ? q2 : q1) + q1
 	if (q2 > 0) l = l + n2 * q2 + q2
 	return(l)
 }
@@ -177,7 +177,7 @@ real scalar sbm_reclen(real scalar n1, real scalar n2, real scalar q1, real scal
 //   two-mode network); the membership probabilities stay in __nwsbm_tau (and __nwsbm_tau2); scalars __nwsbm_Q, __nwsbm_Q2, __nwsbm_sigma2
 // returns the selected Q (rows block count for a two-mode network)
 real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real scalar kind, real scalar dc, real scalar qmin, real scalar qmax,
-	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast,
+	real scalar q2min, real scalar q2max, real scalar seed, real scalar restarts, real scalar s2fix, real scalar threads, real scalar fast, real scalar exact,
 	string scalar tabname, string scalar piname, string scalar alphaname, string scalar sizename, string scalar alpha2name, string scalar size2name)
 {
 	class SbmNat scalar nat
@@ -204,7 +204,7 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 	out = nat.run(y, directed, model, kind, dc, qmin, qmax, q2min, q2max, seed, restarts, s2fix, threads, fast, tot)
 	nat.close()
 	nfit = kind ? (qmax - qmin + 1) * (q2max - q2min + 1) : (qmax - qmin + 1)
-	tab = J(nfit, kind ? 7 : 6, .)
+	tab = J(nfit, kind ? 7 : (exact ? 7 : 6), .)
 	off = 0
 	best = 1
 	bestoff = 0
@@ -212,8 +212,15 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 		k = out[off + 7]
 		l = out[off + 8]
 		if (kind) tab[i, .] = (k, l, out[off + 1], out[off + 2], out[off + 3], out[off + 4], out[off + 5])
+		else if (exact) {
+			if (out[off + 9] < -1e299) {
+				errprintf("icl(exact) is available for the Bernoulli model and the degree-corrected Poisson model of one-mode networks without missing ties\n")
+				exit(198)
+			}
+			tab[i, .] = (k, out[off + 9], out[off + 2], out[off + 3], out[off + 4], out[off + 5], out[off + 1])
+		}
 		else tab[i, .] = (k, out[off + 1], out[off + 2], out[off + 3], out[off + 4], out[off + 5])
-		if (i == 1 | out[off + 1] > tab[best, kind ? 3 : 2] + 1e-9) {
+		if (i == 1 | tab[i, kind ? 3 : 2] > tab[best, kind ? 3 : 2] + 1e-9) {
 			best = i
 			bestoff = off
 		}
@@ -224,7 +231,7 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 	st_numscalar("__nwsbm_Q", qq)
 	st_numscalar("__nwsbm_Q2", qq2)
 	st_numscalar("__nwsbm_sigma2", out[bestoff + 6])
-	off = bestoff + 8
+	off = bestoff + 9
 	__nwsbm_tau = colshape(out[(off + 1)::(off + n1 * qq)], qq)
 	off = off + n1 * qq
 	if (kind) {
