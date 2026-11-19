@@ -122,3 +122,74 @@ void sbmt_pidiff(string scalar vm, string scalar vr, real scalar n)
 	st_numscalar("__pidiff", max(abs(PM[map, map] - PR)))
 }
 end
+
+capture program drop sbmt_mknetv
+* sbmt_mknetv name, ref(fixture) n(#) dir(0|1): valued network (edge list with values; absent = 0, missing list = .)
+program sbmt_mknetv
+	syntax name(name=nm), REF(string) N(integer) DIR(integer)
+	mata: sbmt_loadv(`n', `n', `dir', "$SBM_REPO/dev/ref/`ref'_edges.csv", "$SBM_REPO/dev/ref/`ref'_missing.csv")
+	preserve
+	clear
+	set obs `n'
+	forvalues j = 1/`n' {
+		quietly gen double __a`j' = .
+	}
+	mata: st_store(., ., st_matrix("__sbmt_A"))
+	if `dir' nwset __a*, name(`nm') directed valued replace
+	else nwset __a*, name(`nm') undirected valued replace
+	restore
+	capture matrix drop __sbmt_A
+end
+
+capture program drop sbmt_mknet2
+* sbmt_mknet2 name, ref(fixture) n1(#) n2(#): two-mode network from an n1 x n2 matrix (edge list with values; missing list)
+program sbmt_mknet2
+	syntax name(name=nm), REF(string) N1(integer) N2(integer) [valued]
+	mata: sbmt_loadv(`n1', `n2', 0, "$SBM_REPO/dev/ref/`ref'_edges.csv", "$SBM_REPO/dev/ref/`ref'_missing.csv")
+	preserve
+	clear
+	set obs `n1'
+	forvalues j = 1/`n2' {
+		quietly gen double __a`j' = .
+	}
+	mata: st_store(., ., st_matrix("__sbmt_A"))
+	nwset __a*, name(`nm') bipartite `valued' replace
+	restore
+	capture matrix drop __sbmt_A
+end
+
+mata:
+void sbmt_loadv(real scalar n1, real scalar n2, real scalar dir, string scalar fe, string scalar fm)
+{
+	real matrix A, E
+	real scalar k
+	A = J(n1, n2, 0)
+	E = sbmt_readcsv3(fe)
+	for (k = 1; k <= rows(E); k++) {
+		A[E[k, 1], E[k, 2]] = E[k, 3]
+		if (n1 == n2 & !dir & substr(fe, -1, 1) != "x") A[E[k, 2], E[k, 1]] = E[k, 3]
+	}
+	E = sbmt_readcsv(fm)
+	for (k = 1; k <= rows(E); k++) {
+		A[E[k, 1], E[k, 2]] = .
+		if (n1 == n2 & !dir) A[E[k, 2], E[k, 1]] = .
+	}
+	if (n1 == n2 & dir >= 0) _diag(A, 0)
+	st_matrix("__sbmt_A", A)
+}
+real matrix sbmt_readcsv3(string scalar f)
+{
+	real scalar fh, k
+	string scalar ln
+	real matrix E
+	string matrix L
+	fh = fopen(f, "r")
+	L = J(0, 1, "")
+	while ((ln = fget(fh)) != J(0, 0, "")) L = L \ ln
+	fclose(fh)
+	if (rows(L) <= 1) return(J(0, 3, .))
+	E = J(rows(L) - 1, 3, .)
+	for (k = 2; k <= rows(L); k++) E[k - 1, .] = strtoreal(tokens(subinstr(L[k], ",", " "))[1..3])
+	return(E)
+}
+end
