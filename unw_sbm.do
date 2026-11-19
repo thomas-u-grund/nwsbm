@@ -300,21 +300,20 @@ real scalar SbmFit(real matrix y, real scalar directed, real scalar model, real 
 	out = nat.run(y, directed, model, kind, dc, qmin, qmax, q2min, q2max, seed, restarts, s2fix, threads, fast, X, tot)
 	nat.close()
 	nfit = kind ? (qmax - qmin + 1) * (q2max - q2min + 1) : (qmax - qmin + 1)
-	tab = J(nfit, kind ? 7 : (exact ? 7 : 6), .)
+	tab = J(nfit, kind ? (exact ? 8 : 7) : (exact ? 7 : 6), .)
 	off = 0
 	best = 1
 	bestoff = 0
 	for (i = 1; i <= nfit; i++) {
 		k = out[off + 7]
 		l = out[off + 8]
-		if (kind) tab[i, .] = (k, l, out[off + 1], out[off + 2], out[off + 3], out[off + 4], out[off + 5])
-		else if (exact) {
-			if (out[off + 9] < -1e299) {
-				errprintf("icl(exact) is available for the Bernoulli model and the degree-corrected Poisson model of one-mode networks without missing ties\n")
-				exit(198)
-			}
-			tab[i, .] = (k, out[off + 9], out[off + 2], out[off + 3], out[off + 4], out[off + 5], out[off + 1])
+		if (exact & out[off + 9] < -1e299) {
+			errprintf("icl(exact) is available for the Bernoulli model and the degree-corrected Poisson model of one-mode networks and for the degree-corrected Poisson model of two-mode networks, all without missing ties\n")
+			exit(198)
 		}
+		if (kind & exact) tab[i, .] = (k, l, out[off + 9], out[off + 2], out[off + 3], out[off + 4], out[off + 5], out[off + 1])
+		else if (kind) tab[i, .] = (k, l, out[off + 1], out[off + 2], out[off + 3], out[off + 4], out[off + 5])
+		else if (exact) tab[i, .] = (k, out[off + 9], out[off + 2], out[off + 3], out[off + 4], out[off + 5], out[off + 1])
 		else tab[i, .] = (k, out[off + 1], out[off + 2], out[off + 3], out[off + 4], out[off + 5])
 		if (i == 1 | tab[i, kind ? 3 : 2] > tab[best, kind ? 3 : 2] + 1e-9) {
 			best = i

@@ -49,7 +49,7 @@ program nwsbm, eclass
 	}
 	local __exact = ("`icl'" == "exact")
 	if `__exact' & ("`model'" == "gaussian" | ("`model'" == "poisson" & "`degreecorrected'" == "") ) {
-		di as error "{p 0 0 2}icl(exact) is available for model(bernoulli) and for model(poisson) with degreecorrected (the models of R greed).{p_end}"
+		di as error "{p 0 0 2}icl(exact) is available for model(bernoulli) (one-mode networks) and for model(poisson) with degreecorrected (the models of R greed).{p_end}"
 		error 198
 	}
 	if `__nb' >= 1 & `__nmx' >= 1 {
@@ -84,16 +84,16 @@ program nwsbm, eclass
 	set more off
 	_nwsyntax `netname', max(1)
 	local __kind = ("`is2mode'" == "true")
-	if `__kind' & "`degreecorrected'" != "" {
-		di as error "degreecorrected is available for one-mode networks only"
-		error 198
-	}
 	if `__kind' == 0 & (`__nb' == 2 | `__nmx' == 2 | `__nmn' == 2) {
 		di as error "{p 0 0 2}blocks(#1 #2), maxblocks(#1 #2) and minblocks(#1 #2) (row and column blocks) are for two-mode networks; `netname' is one-mode.{p_end}"
 		error 198
 	}
 	if `__kind' & (`__nb' == 1 | `__nmx' == 1 | `__nmn' == 1) {
 		di as error "{p 0 0 2}`netname' is a two-mode network: give two numbers, one for the blocks of mode 1 and one for mode 2 (for example blocks(3 2)).{p_end}"
+		error 198
+	}
+	if `__kind' & `__exact' & "`degreecorrected'" == "" {
+		di as error "{p 0 0 2}icl(exact) for a two-mode network is available for model(poisson) with degreecorrected (the model of R greed).{p_end}"
 		error 198
 	}
 	if `nodes' < 3 {
@@ -257,7 +257,7 @@ program nwsbm, eclass
 	ereturn local model "`model'"
 	ereturn local network "`netname'"
 	ereturn local icltype "`icl'"
-	if `__exact' ereturn scalar ICLbm = `TAB'[`__row', 7]
+	if `__exact' ereturn scalar ICLbm = `TAB'[`__row', cond(`__kind', 8, 7)]
 	ereturn scalar ncov = `__p'
 	if `__p' > 0 {
 		matrix colnames `BETA' = `__cnames'
@@ -278,7 +278,8 @@ program nwsbm, eclass
 	}
 	ereturn local degreecorrected = cond(`__dc', "yes", "no")
 	ereturn local membership = cond(`__kind', "LBM", cond(`__dir', "SBM", "SBM_sym"))
-	if `__kind' matrix colnames `TAB' = Q1 Q2 ICL J PL H npar
+	if `__kind' & `__exact' matrix colnames `TAB' = Q1 Q2 ICL J PL H npar ICLbm
+	else if `__kind' matrix colnames `TAB' = Q1 Q2 ICL J PL H npar
 	else if `__exact' matrix colnames `TAB' = Q ICL J PL H npar ICLbm
 	else matrix colnames `TAB' = Q ICL J PL H npar
 	forvalues k = 1/`__q' {
