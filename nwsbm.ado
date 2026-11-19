@@ -217,7 +217,7 @@ program nwsbm, eclass
 	tempname TAB PI AL BS AL2 BS2 BETA
 	local __fast = ("`fast'" != "")
 	local __dc = ("`degreecorrected'" != "")
-	capture noisily mata: SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
+	capture noisily mata: (void) SbmFit(__nwsbm_y, `__dir', `__model', `__kind', `__dc', `qmin', `qmax', `q2min', `q2max', `__seed', `restarts', `sigma2', `threads', `__fast', `__exact', __nwsbm_x, "`TAB'", "`PI'", "`AL'", "`BS'", "`AL2'", "`BS2'", "`BETA'")
 	local __rc = _rc
 	mata: st_local("__nmiss", strofreal(sum(__nwsbm_y :>= .) / (1 + (!`__dir' & !`__kind'))))
 	capture mata: mata drop __nwsbm_y __nwsbm_x
