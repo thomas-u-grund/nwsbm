@@ -145,7 +145,7 @@ capture program drop sbmt_mknet2
 * sbmt_mknet2 name, ref(fixture) n1(#) n2(#): two-mode network from an n1 x n2 matrix (edge list with values; missing list)
 program sbmt_mknet2
 	syntax name(name=nm), REF(string) N1(integer) N2(integer) [valued]
-	mata: sbmt_loadv(`n1', `n2', 0, "$SBM_REPO/dev/ref/`ref'_edges.csv", "$SBM_REPO/dev/ref/`ref'_missing.csv")
+	mata: sbmt_loadv(`n1', `n2', -1, "$SBM_REPO/dev/ref/`ref'_edges.csv", "$SBM_REPO/dev/ref/`ref'_missing.csv")
 	preserve
 	clear
 	set obs `n1'
@@ -167,14 +167,14 @@ void sbmt_loadv(real scalar n1, real scalar n2, real scalar dir, string scalar f
 	E = sbmt_readcsv3(fe)
 	for (k = 1; k <= rows(E); k++) {
 		A[E[k, 1], E[k, 2]] = E[k, 3]
-		if (n1 == n2 & !dir & substr(fe, -1, 1) != "x") A[E[k, 2], E[k, 1]] = E[k, 3]
+		if (dir == 0) A[E[k, 2], E[k, 1]] = E[k, 3]
 	}
 	E = sbmt_readcsv(fm)
 	for (k = 1; k <= rows(E); k++) {
 		A[E[k, 1], E[k, 2]] = .
-		if (n1 == n2 & !dir) A[E[k, 2], E[k, 1]] = .
+		if (dir == 0) A[E[k, 2], E[k, 1]] = .
 	}
-	if (n1 == n2 & dir >= 0) _diag(A, 0)
+	if (dir >= 0) _diag(A, 0)
 	st_matrix("__sbmt_A", A)
 }
 real matrix sbmt_readcsv3(string scalar f)
@@ -191,5 +191,50 @@ real matrix sbmt_readcsv3(string scalar f)
 	E = J(rows(L) - 1, 3, .)
 	for (k = 2; k <= rows(L); k++) E[k - 1, .] = strtoreal(tokens(subinstr(L[k], ",", " "))[1..3])
 	return(E)
+}
+end
+
+mata:
+real colvector sbmt_readcol(string scalar f)
+{
+	real scalar fh, k
+	string scalar ln
+	string matrix L
+	real colvector v
+	fh = fopen(f, "r")
+	L = J(0, 1, "")
+	while ((ln = fget(fh)) != J(0, 0, "")) L = L \ ln
+	fclose(fh)
+	v = J(rows(L) - 1, 1, .)
+	for (k = 2; k <= rows(L); k++) v[k - 1] = strtoreal(tokens(subinstr(L[k], ",", " "))[2])
+	return(v)
+}
+void sbmt_ari_csv(string scalar var, string scalar f, real colvector idx)
+{
+	st_numscalar("__ari", sbmt_ari(st_data(idx, var), sbmt_readcol(f)))
+}
+// largest |difference| between e(pi) and R's pi (R rows x R columns), blocks matched by overlap on both modes
+void sbmt_pidiff2(string scalar var, string scalar fcol, string scalar frow, real colvector i1, real colvector i2)
+{
+	real matrix PM, PR, M
+	real colvector a1, b1, a2, b2, map1, map2
+	real scalar q1, q2, k, j
+	a1 = st_data(i1, var); b1 = sbmt_readcol(fcol)
+	a2 = st_data(i2, var); b2 = sbmt_readcol(frow)
+	PM = st_matrix("e(pi)")
+	PR = st_matrix("RPI")'
+	q1 = rows(PM); q2 = cols(PM)
+	map1 = J(q1, 1, 0); map2 = J(q2, 1, 0)
+	for (k = 1; k <= q1; k++) {
+		M = J(q1, 1, 0)
+		for (j = 1; j <= q1; j++) M[j] = sum((b1 :== k) :* (a1 :== j))
+		map1[k] = (select(1::q1, M :== max(M)))[1]
+	}
+	for (k = 1; k <= q2; k++) {
+		M = J(q2, 1, 0)
+		for (j = 1; j <= q2; j++) M[j] = sum((b2 :== k) :* (a2 :== j))
+		map2[k] = (select(1::q2, M :== max(M)))[1]
+	}
+	st_numscalar("__pidiff", max(abs(PM[map1, map2] - PR)))
 }
 end

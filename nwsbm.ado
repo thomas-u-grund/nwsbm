@@ -77,10 +77,6 @@ program nwsbm, eclass
 		di as error "{p 0 0 2}`netname' is a two-mode network: give two numbers, one for the blocks of mode 1 and one for mode 2 (for example blocks(3 2)).{p_end}"
 		error 198
 	}
-	if "`valued'" == "true" & "`model'" == "bernoulli" {
-		di as error "{p 0 0 2}model(bernoulli) fits binary networks; `netname' is a valued network. Use model(poisson) (counts) or model(gaussian), or dichotomise it with {bf:nwreplace}.{p_end}"
-		error 198
-	}
 	if `nodes' < 3 {
 		di as error "the network needs at least 3 actors"
 		error 198
@@ -114,7 +110,7 @@ program nwsbm, eclass
 	}
 	if `__bad' == 2 {
 		capture mata: mata drop __nwsbm_y
-		di as error "model(bernoulli) needs ties that are 0 or 1"
+		di as error "{p 0 0 2}model(bernoulli) needs ties that are 0 or 1; `netname' has other values. Use model(poisson) (counts) or model(gaussian), or dichotomise it with {bf:nwreplace}.{p_end}"
 		error 198
 	}
 	* ranges of block numbers
