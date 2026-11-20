@@ -453,9 +453,40 @@ real colvector sbm_hard(real matrix tau)
 	return(h)
 }
 
+// order of the actors for the plots: by most probable block; within a block by the original order, or (srt) by decreasing certainty (largest membership probability)
+real colvector sbm_perm(real matrix tau, real scalar srt)
+{
+	real colvector h
+	h = sbm_hard(tau)
+	if (srt) return(order((h, -rowmax(tau), (1::rows(tau))), (1, 2, 3)))
+	return(order((h, (1::rows(h))), (1, 2)))
+}
+
+// axis specifications of a blocked matrix plot (block boundaries and block numbers), written to the locals of the calling program
+void sbm_axes(real colvector c1, real colvector sz1, real colvector c2, real colvector sz2, real scalar nr)
+{
+	real colvector ctr1, ctr2
+	real scalar k
+	string scalar sx, sy, lx, ly
+	ctr1 = c1 - sz1 :/ 2 :+ 0.5
+	ctr2 = c2 - sz2 :/ 2 :+ 0.5
+	sx = ""
+	sy = ""
+	lx = ""
+	ly = ""
+	for (k = 1; k < rows(c2); k++) sx = sx + " " + strofreal(c2[k] + 0.5)
+	for (k = 1; k < rows(c1); k++) sy = sy + " " + strofreal(nr - c1[k] + 0.5)
+	for (k = 1; k <= rows(c2); k++) lx = lx + " " + strofreal(ctr2[k]) + " " + char(34) + strofreal(k) + char(34)
+	for (k = 1; k <= rows(c1); k++) ly = ly + " " + strofreal(nr - ctr1[k] + 1) + " " + char(34) + strofreal(k) + char(34)
+	st_local("__xl", sx)
+	st_local("__yl", sy)
+	st_local("__xlab", lx)
+	st_local("__ylab", ly)
+}
+
 // data of the blocked adjacency matrix plot: writes the variables of the current dataset (ties: __x __y __v; shaded block rectangles: __yl __yh __xc __w
 // __sh) and the axis specifications in locals. A: the matrix (one-mode: n x n, two-mode: rows i1, columns i2 of the full matrix); pi: connectivity
-void SbmPlotMatrix(real matrix A, real scalar kind, real colvector i1, real colvector i2, real matrix pim, real scalar shade, real scalar showmiss)
+void SbmPlotMatrix(real matrix A, real scalar kind, real colvector i1, real colvector i2, real matrix pim, real scalar shade, real scalar showmiss, real scalar srt)
 {
 	external real matrix __nwsbm_tau, __nwsbm_tau2
 	real colvector h1, h2, p1, p2, c1, c2, sz1, sz2, ctr1, ctr2
@@ -477,11 +508,12 @@ void SbmPlotMatrix(real matrix A, real scalar kind, real colvector i1, real colv
 		q2 = q1
 		M = A
 	}
-	p1 = order((h1, (1::rows(h1))), (1, 2))
-	p2 = order((h2, (1::rows(h2))), (1, 2))
-	M = M[p1, p2]
+	p1 = sbm_perm(__nwsbm_tau, srt)
+	if (kind) p2 = sbm_perm(__nwsbm_tau2, srt)
+	else p2 = p1
 	h1 = h1[p1]
 	h2 = h2[p2]
+	M = M[p1, p2]
 	nr = rows(M)
 	nc = cols(M)
 	sz1 = J(q1, 1, 0)
@@ -523,19 +555,102 @@ void SbmPlotMatrix(real matrix A, real scalar kind, real colvector i1, real colv
 			}
 		}
 	}
-	sx = ""
-	sy = ""
-	lx = ""
-	ly = ""
-	for (k = 1; k < q2; k++) sx = sx + " " + strofreal(c2[k] + 0.5)
-	for (k = 1; k < q1; k++) sy = sy + " " + strofreal(nr - c1[k] + 0.5)
-	for (k = 1; k <= q2; k++) lx = lx + " " + strofreal(ctr2[k]) + " " + char(34) + strofreal(k) + char(34)
-	for (k = 1; k <= q1; k++) ly = ly + " " + strofreal(nr - ctr1[k] + 1) + " " + char(34) + strofreal(k) + char(34)
-	st_local("__xl", sx)
-	st_local("__yl", sy)
-	st_local("__xlab", lx)
-	st_local("__ylab", ly)
+	sbm_axes(c1, sz1, c2, sz2, nr)
 	st_local("__nr", strofreal(nr))
 	st_local("__nc", strofreal(nc))
+}
+// data of the plot of the expected tie values: E = tau1 * pi * tau2' (posterior memberships), actors ordered by block (and certainty if srt); writes
+// __x __y __v __lev (eight levels of E) and the axis locals; one-mode: the diagonal is left out
+void SbmPlotExpected(real scalar kind, real matrix pim, real scalar srt)
+{
+	external real matrix __nwsbm_tau, __nwsbm_tau2
+	real colvector p1, p2, h1, h2, sz1, sz2, c1, c2, idx, v
+	real matrix E, Msk
+	real scalar nr, nc, q1, q2, k, n, lo, hi
+	real colvector i, j
+
+	q1 = cols(__nwsbm_tau)
+	p1 = sbm_perm(__nwsbm_tau, srt)
+	h1 = sbm_hard(__nwsbm_tau)[p1]
+	if (kind) {
+		q2 = cols(__nwsbm_tau2)
+		p2 = sbm_perm(__nwsbm_tau2, srt)
+		h2 = sbm_hard(__nwsbm_tau2)[p2]
+		E = __nwsbm_tau[p1, .] * pim * __nwsbm_tau2[p2, .]'
+	}
+	else {
+		q2 = q1
+		p2 = p1
+		h2 = h1
+		E = __nwsbm_tau[p1, .] * pim * __nwsbm_tau[p1, .]'
+	}
+	nr = rows(E)
+	nc = cols(E)
+	if (nr * nc > 2.5e6) {
+		errprintf("too many cells (%g x %g) for the plot of the expected values\n", nr, nc)
+		exit(1000)
+	}
+	sz1 = J(q1, 1, 0)
+	sz2 = J(q2, 1, 0)
+	for (k = 1; k <= q1; k++) sz1[k] = sum(h1 :== k)
+	for (k = 1; k <= q2; k++) sz2[k] = sum(h2 :== k)
+	c1 = runningsum(sz1)
+	c2 = runningsum(sz2)
+	Msk = J(nr, nc, 1)
+	if (!kind) _diag(Msk, 0)
+	idx = selectindex(vec(Msk))
+	v = vec(E)[idx]
+	j = ceil(idx :/ nr)
+	i = idx - (j :- 1) :* nr
+	lo = min(v)
+	hi = max(v)
+	n = rows(v)
+	st_addobs(n)
+	(void) st_addvar("double", ("__x", "__y", "__v", "__lev"))
+	st_store((1::n), ("__x", "__y", "__v"), (j, nr :- i :+ 1, v))
+	if (hi > lo) v = rowmax((ceil(8 :* (v :- lo) :/ (hi - lo)), J(n, 1, 1)))
+	else v = J(n, 1, 1)
+	st_store((1::n), "__lev", v)
+	sbm_axes(c1, sz1, c2, sz2, nr)
+	st_local("__nr", strofreal(nr))
+	st_local("__nc", strofreal(nc))
+	st_local("__vmin", strofreal(lo, "%9.3g"))
+	st_local("__vmax", strofreal(hi, "%9.3g"))
+}
+
+// data of the membership plot of one mode: actors ordered by block and decreasing certainty; __x (position), __cum0 ... __cumQ (cumulative
+// membership probabilities, for stacked bars), locals __n and __xl (block boundaries)
+void SbmPlotMember(real scalar mode)
+{
+	external real matrix __nwsbm_tau, __nwsbm_tau2
+	real matrix T
+	real colvector p, h, c
+	real scalar n, q, k
+	string scalar sx
+	T = (mode == 1 ? __nwsbm_tau : __nwsbm_tau2)
+	p = sbm_perm(T, 1)
+	h = sbm_hard(T)[p]
+	T = T[p, .]
+	n = rows(T)
+	q = cols(T)
+	T = (J(n, 1, 0), T * uppertriangle(J(q, q, 1)))
+	st_addobs(n)
+	(void) st_addvar("double", ("__x", "__cum" :+ strofreal(0..q)))
+	st_store((1::n), "__x", (1::n))
+	st_store((1::n), ("__cum" :+ strofreal(0..q)), T)
+	c = runningsum(sbm_freq(h, q))
+	sx = ""
+	for (k = 1; k < q; k++) sx = sx + " " + strofreal(c[k] + 0.5)
+	st_local("__xl", sx)
+	st_local("__n", strofreal(n))
+}
+
+real colvector sbm_freq(real colvector h, real scalar q)
+{
+	real colvector f
+	real scalar k
+	f = J(q, 1, 0)
+	for (k = 1; k <= q; k++) f[k] = sum(h :== k)
+	return(f)
 }
 end

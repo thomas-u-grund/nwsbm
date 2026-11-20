@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.4.1] - unreleased
+## [Unreleased]
+- `nwsbmplot` new plot types: `type(icl)` (ICL against the number of blocks, the selected number marked; with `icl(exact)` the exact ICL plus the `blockmodels` ICL on a second axis; two-mode: one line per number of blocks of mode 2), `type(expected)` (posterior expected tie values T1 pi T2' by block, eight grey levels), `type(membership)` (stacked bars of the membership probabilities, ordered by block and certainty; two-mode: one panel per mode); aliases `type(data)` = `matrix` and `type(meso)` = `blocks` as in R `sbm`.
+- `nwsbmplot` new options: `sort` (actors within a block by decreasing certainty, matrix and expected), `colors()` (block colours: `default`, `gray` or a list of colours), `export()` (graph export by extension). Directed block graphs: arrowheads now end at the rim of the nodes and the two directions of a pair run side by side.
+- Dialog `nwsbmplot.dlg` has the new plots and options. New test `cscripts/test_nwsbm_plots.do`.
+- Mata library rebuilt (new helpers `sbm_perm`, `sbm_axes`, `SbmPlotExpected`, `SbmPlotMember`; `SbmPlotMatrix` has a `sort` argument): after merging with other branches that change the library, rebuild it with Stata 17.
 - `estat icl` stars the cell the fit selected (`e(Q)`, `e(Q2)`). It used to find the largest ICL itself through a rounded macro value, so with exactly tied cells (common with `icl(exact)`, where a fit with empty blocks has the partition of a fit with fewer blocks; e.g. the degree-corrected model on the Southern women with `maxblocks(4 4)`) it could star a different cell (4 x 1) than the fit's own table (1 x 1). The tie rule is now one documented rule: cells within 1e-9 of the largest ICL tie and the first row of the table wins (smaller Q, for two-mode networks the smaller Q1 and then the smaller Q2). Fit results are unchanged.
 - Test `cscripts/test_nwsbm_icltie.do` (data `dev/ref/davis_matrix.csv`).
 
