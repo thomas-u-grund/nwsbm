@@ -23,6 +23,7 @@ capture mata: mata drop SbmStore()
 capture mata: mata drop sbm_reclen()
 capture mata: mata drop _sbm_inv()
 capture mata: mata drop SbmPlotMatrix()
+capture mata: mata drop SbmActLab()
 capture mata: mata drop sbm_hard()
 capture mata: mata drop sbm_setidx()
 capture mata: mata drop sbm_checkvalues()
@@ -653,4 +654,43 @@ real colvector sbm_freq(real colvector h, real scalar q)
 	for (k = 1; k <= q; k++) f[k] = sum(h :== k)
 	return(f)
 }
+// labels of the actors for the axes of the matrix and expected plots (locals __xlab __ylab) and under the membership bars (__m1 __m2); the node positions
+// of a two-mode network are in __nwsbm_i1, __nwsbm_i2
+void SbmActLab(string scalar vn, real scalar two, real scalar srt)
+{
+	external real matrix __nwsbm_tau, __nwsbm_tau2
+	external real colvector __nwsbm_i1, __nwsbm_i2
+	string colvector L, L1, L2
+	real colvector p1, p2, q1, q2
+	real scalar i, nr, nc
+	string scalar sx, sy, s1, s2
+	L = subinstr(st_sdata(., vn), char(34), "")
+	if (two) {
+		L1 = L[__nwsbm_i1]
+		L2 = L[__nwsbm_i2]
+	}
+	else {
+		L1 = L
+		L2 = L
+	}
+	p1 = sbm_perm(__nwsbm_tau, srt)
+	p2 = two ? sbm_perm(__nwsbm_tau2, srt) : p1
+	q1 = sbm_perm(__nwsbm_tau, 1)
+	q2 = two ? sbm_perm(__nwsbm_tau2, 1) : q1
+	nr = rows(p1)
+	nc = rows(p2)
+	sx = ""
+	sy = ""
+	s1 = ""
+	s2 = ""
+	for (i = 1; i <= nc; i++) sx = sx + " " + strofreal(i) + " " + char(34) + L2[p2[i]] + char(34)
+	for (i = 1; i <= nr; i++) sy = sy + " " + strofreal(nr - i + 1) + " " + char(34) + L1[p1[i]] + char(34)
+	for (i = 1; i <= rows(q1); i++) s1 = s1 + " " + strofreal(i) + " " + char(34) + L1[q1[i]] + char(34)
+	for (i = 1; i <= rows(q2); i++) s2 = s2 + " " + strofreal(i) + " " + char(34) + L2[q2[i]] + char(34)
+	st_local("__xlab", sx)
+	st_local("__ylab", sy)
+	st_local("__m1", s1)
+	st_local("__m2", s2)
+}
+
 end

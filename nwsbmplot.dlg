@@ -7,7 +7,7 @@ OK ok1, label("OK")
 CANCEL can1, label("Cancel")
 SUBMIT sub1, label("Submit")
 RESET res1
-POSITION 10 10 520 380
+POSITION 10 10 520 480
 
 DIALOG main, title("nwsbmplot - Plots of a stochastic block model")
 BEGIN
@@ -19,7 +19,7 @@ BEGIN
   CHECKBOX cx_missing 20 116 460 ., label("show missing ties")
   CHECKBOX cx_nolabels 20 136 460 ., label("no block labels on the axes")
   CHECKBOX cx_sort 20 156 460 ., label("order actors within a block by certainty (matrix, expected ties)")
-  GROUPBOX gb_gen 10 186 500 186, label("Graph")
+  GROUPBOX gb_gen 10 186 500 286, label("Graph")
   TEXT tx_col 20 206 200 ., label("Colours of the blocks (list):")
   EDIT ed_col 230 206 260 ., nomem
   TEXT tx_title 20 234 200 ., label("Title (blank = default):")
@@ -30,6 +30,13 @@ BEGIN
   FILE fi_save 230 290 260 ., save label("Browse...") filter("Stata graph (*.gph)|*.gph|All (*.*)|*.*") nomem
   TEXT tx_exp 20 318 200 ., label("Export graph to file (.png, .pdf):")
   FILE fi_exp 230 318 260 ., save label("Browse...") filter("PNG (*.png)|*.png|PDF (*.pdf)|*.pdf|All (*.*)|*.*") nomem
+  TEXT tx_bl 20 346 200 ., label("Names of the blocks (list):")
+  EDIT ed_bl 230 346 260 ., nomem
+  TEXT tx_al 20 374 200 ., label("Actor labels (variable, up to 40 actors):")
+  VARNAME vn_al 230 374 260 ., nomem
+  TEXT tx_lc 20 402 200 ., label("Colour of the block lines:")
+  EDIT ed_lc 230 402 120 ., nomem
+  CHECKBOX cx_nolg 20 430 460 ., label("no legend (ICL plot, membership)")
 END
 
 LIST typelist
@@ -73,6 +80,18 @@ BEGIN
 	}
 	if main.ed_col.isneq("") {
 		put " colors(" main.ed_col ")"
+	}
+	if main.ed_bl.isneq("") {
+		put " blocklabels(" main.ed_bl ")"
+	}
+	if main.vn_al.isneq("") {
+		put " actorlabels(" main.vn_al ")"
+	}
+	if main.ed_lc.isneq("") {
+		put " linecolor(" main.ed_lc ")"
+	}
+	if main.cx_nolg {
+		put " nolegend"
 	}
 	if main.ed_title.isneq("") {
 		put " title(" main.ed_title ")"

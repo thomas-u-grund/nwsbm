@@ -1,6 +1,7 @@
 # Changelog
 
 ## [1.0.0] - 2026-11-20
+- `nwsbmplot`: titles, subtitles, axis titles and legend titles are black by default (a twoway option still overrides); `title("")` (or a blank title) draws no title, in every plot type; new options `blocklabels(list)` (names of the blocks on the axes, in the membership legend and on the block-graph nodes), `actorlabels(varname)` (actor names on the axes of matrix and expected and under the membership bars, up to 40 actors), `linecolor()` (block lines of matrix and expected, gray `gs8` by default instead of red), `nolegend` (icl, membership); the matrix and expected plots have the default axis titles "block of sender" / "block of receiver" ("block of mode 1" / "block of mode 2"). Tests in `cscripts/test_nwsbm_plots.do`. The Mata library has the new helper `SbmActLab` (rebuilt with Stata 17).
 - Fixes: `nwsbmplot, type(icl)`: the legend is drawn with a wider margin (two rows below the plot, or at the right for two-mode fits) so that no label runs over the frame of the legend box (checked in `test_nwsbm_plots`).
 - Fixes: `nwsbmplot, type(matrix) shade` drew thin strips instead of shaded block rectangles (every rectangle is now drawn with its own width); the two-mode `estat icl` header reads "Blocks" (the rows are labelled "Q1 x Q2"); the help file now says that the rows of the two-mode matrix plot are the actors of mode 1 and the columns those of mode 2 (as drawn). Tests in `cscripts/test_nwsbm_plots.do`.
 - First stable release: the syntax, the stored results and the options are kept from here on within 1.x.

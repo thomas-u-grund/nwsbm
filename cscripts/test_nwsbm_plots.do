@@ -177,5 +177,82 @@ if `__nr' != e(N1) | `__nc' != e(N2) {
 else di as result "PASS two-mode rows are mode 1"
 restore
 
+
+* ---- 1.0.0 style options: blocklabels(), actorlabels(), title(""), nolegend, linecolor(), default axis titles, black titles
+set seed 7
+quietly nwrandom 24, prob(.25) undirected name(sm)
+quietly {
+	clear
+	set obs 24
+	gen str12 nm = "act" + string(_n)
+	gen byte rk = 1 + (_n > 12)
+	label define rk_l 1 "first" 2 "second"
+	label values rk rk_l
+}
+quietly nwsbm sm, blocks(3) seed(3) nodisplay
+local k 0
+foreach o in `"blocklabels(Alpha Beta Gamma)"' `"blocklabels("Alpha one" "Beta two" Gamma)"' `"type(expected) blocklabels(A B C)"' `"type(membership) blocklabels(A B C)"' ///
+	`"type(blocks) blocklabels(A B C)"' `"actorlabels(nm)"' `"actorlabels(rk)"' `"type(expected) actorlabels(nm)"' `"type(membership) actorlabels(nm)"' ///
+	`"actorlabels(nm) blocklabels(A B C) sort"' `"linecolor(gs12)"' `"linecolor(red) shade"' `"xtitle(cols) ytitle(rows)"' `"type(membership) nolegend"' ///
+	`"type(membership) title("")"' `"title("")"' `"title(" ")"' `"type(expected) title("")"' `"type(blocks) title("")"' `"title("Own", size(large))"' {
+	capture graph drop __g
+	chk __g, opts(`o') label("style option set `++k'")
+}
+* wrong number of block names
+capture nwsbmplot, blocklabels(A B)
+if _rc != 198 {
+	di as error "FAIL blocklabels with too few names should give r(198), got " _rc
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS blocklabels count"
+* title("") removes the title: the picture differs from the default title's, in every type
+foreach t in matrix expected membership blocks {
+	nwsbmplot, type(`t') export("`tmp'/ti_a.png")
+	quietly checksum "`tmp'/ti_a.png"
+	local ca = r(checksum)
+	nwsbmplot, type(`t') title("") export("`tmp'/ti_b.png")
+	quietly checksum "`tmp'/ti_b.png"
+	if "`ca'" == "`r(checksum)'" {
+		di as error "FAIL title("") has no effect for type(`t')"
+		global nwfail = $nwfail + 1
+	}
+	else di as result "PASS title("") type(`t')"
+}
+* block names change the picture; actorlabels on more than 40 actors are ignored (with a note), the plot is still drawn
+nwsbmplot, export("`tmp'/bl_a.png")
+quietly checksum "`tmp'/bl_a.png"
+local ca = r(checksum)
+nwsbmplot, blocklabels(Alpha Beta Gamma) export("`tmp'/bl_b.png")
+quietly checksum "`tmp'/bl_b.png"
+if "`ca'" == "`r(checksum)'" {
+	di as error "FAIL blocklabels() has no effect"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS blocklabels changes the plot"
+nwsbmplot, actorlabels(nm) export("`tmp'/al_a.png")
+quietly checksum "`tmp'/al_a.png"
+if "`ca'" == "`r(checksum)'" {
+	di as error "FAIL actorlabels() has no effect"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS actorlabels changes the plot"
+quietly {
+	clear
+	set obs 150
+	gen str6 nm = "a" + string(_n)
+}
+quietly nwsbm gu, blocks(3) seed(3) nodisplay
+capture noisily nwsbmplot, actorlabels(nm) name(__big, replace)
+if _rc {
+	di as error "FAIL actorlabels with more than 40 actors should be ignored, got r(" _rc ")"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS actorlabels ignored for 150 actors"
+* nolegend on the exact-ICL path and default axis titles run
+quietly nwsbm gu, maxblocks(4) seed(3) icl(exact) nodisplay
+chk __g, opts(type(icl) nolegend) label("icl nolegend")
+chk __g, opts(type(icl) title("")) label("icl title off")
+capture graph drop _all
+
 if $nwfail di as error "FAILED $nwfail"
 else di as result "ALL PASSED"

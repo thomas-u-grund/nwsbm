@@ -3,8 +3,17 @@
 capture program drop nwsbmplot
 program nwsbmplot
 	version 14
-	syntax [, TYpe(string) SHADE NOLInes MISSing NOLABels SORT COLors(string asis) EXPort(string asis) Title(string asis) NAME(string) SAVing(string) SIZEs *]
+	syntax [, TYpe(string) SHADE NOLInes MISSing NOLABels SORT COLors(string asis) EXPort(string asis) Title(string asis) NAME(string) SAVing(string) SIZEs BLOCKLabels(string asis) ACTORLabels(varname) LINEColor(string) NOLEGend *]
 	if "`e(cmd)'" != "nwsbm" error 301
+	* title("") (or a blank title) switches the title off
+	local notitle 0
+	if `"`title'"' != "" {
+		local tchk = trim(subinstr(`"`title'"', `"""', "", .))
+		if `"`tchk'"' == "" {
+			local notitle 1
+			local title
+		}
+	}
 	if "`type'" == "" local type "matrix"
 	local type = lower("`type'")
 	if "`type'" == "data" local type "matrix"
@@ -21,6 +30,43 @@ program nwsbmplot
 		}
 	}
 	local two = ("`e(membership)'" == "LBM")
+	* blocklabels(): names of the blocks (mode 1 first, then mode 2)
+	local nbl 0
+	if `"`blocklabels'"' != "" {
+		if "`type'" == "icl" {
+			di as text "(blocklabels() is not used by type(icl): the path runs over different numbers of blocks)"
+		}
+		else {
+			local need = cond(`two', e(Q1) + e(Q2), e(Q))
+			local bl `"`blocklabels'"'
+			while `"`bl'"' != "" {
+				gettoken b1 bl : bl
+				local ++nbl
+				local bn`nbl' = subinstr(`"`b1'"', `"""', "", .)
+			}
+			if `nbl' != `need' {
+				di as error "blocklabels() needs `need' names" cond(`two', " (`=e(Q1)' blocks of mode 1, then `=e(Q2)' of mode 2)", " (one per block)") ", `nbl' given"
+				exit 198
+			}
+		}
+	}
+	* actorlabels(): names of the actors on the axes of the matrix and expected plots and under the membership bars (small networks only)
+	local useal 0
+	if "`actorlabels'" != "" & "`type'" != "icl" {
+		local nbig = 0
+		mata: st_local("nbig", strofreal(max((rows(__nwsbm_tau), `=cond(`two', "rows(__nwsbm_tau2)", "0")'))))
+		if `nbig' > 40 {
+			di as text "(actorlabels() is ignored: more than 40 actors; the labels would not be readable)"
+		}
+		else {
+			_nwsbmplot_alab `actorlabels', two(`two') srt(`=("`sort'" != "")')
+			local useal 1
+			local al_x `"`r(xlab)'"'
+			local al_y `"`r(ylab)'"'
+			local al_m1 `"`r(m1)'"'
+			local al_m2 `"`r(m2)'"'
+		}
+	}
 	local nmopt = cond("`name'" != "", "name(`name')", "")
 	local svopt = cond(`"`saving'"' != "", `"saving("`saving'", replace)"', "")
 	* palette of the blocks
@@ -98,9 +144,12 @@ program nwsbmplot
 			local legopt `"legend(order(`ord') size(small) rows(2) position(6) region(margin(l+1 r+6 t+1 b+1)))"'
 		}
 		if `"`title'"' == "" local title `""`ttl'""'
+		_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+		local title `"`r(t)'"'
+		if "`nolegend'" != "" local legopt "legend(off)"
 		local y2 ""
-		if !`two' & `hasbm' local y2 `"ytitle("ICL of blockmodels", axis(2)) ylabel(, angle(0) axis(2))"'
-		twoway `plots', `xlab' xtitle("`xt'") ytitle("`crit'") ylabel(, angle(0)) `y2' `legopt' title(`title') `nmopt' `svopt' `options'
+		if !`two' & `hasbm' local y2 `"ytitle("ICL of blockmodels", axis(2) color(black)) ylabel(, angle(0) axis(2))"'
+		twoway `plots', `xlab' xtitle("`xt'", color(black)) ytitle("`crit'", color(black)) ylabel(, angle(0)) `y2' `legopt' `title' `nmopt' `svopt' `options'
 		restore
 	}
 	else if "`type'" == "membership" {
@@ -117,25 +166,32 @@ program nwsbmplot
 			forvalues k = 1/`q' {
 				local c = mod(`k' - 1, `npal') + 1
 				local plots `plots' (rbar __cum`=`k' - 1' __cum`k' __x, barwidth(1) fcolor(`"`pal`c''"') lcolor(`"`pal`c''"') lwidth(none))
-				local ord `ord' `k' "`k'"
+				local nm "`k'"
+				if `nbl' > 0 local nm `"`bn`=cond(`md' == 2, e(Q1) + `k', `k')''"'
+				local ord `"`ord' `k' "`nm'""'
 			}
 			local xl ""
 			if "`nolines'" == "" & "`__xl'" != "" local xl "xline(`__xl', lcolor(black) lwidth(vthin))"
 			local legopt "legend(off)"
-			if `q' <= 12 local legopt `"legend(order(`ord') rows(1) size(small) title("block", size(small)) position(6))"'
+			if `q' <= 12 & "`nolegend'" == "" local legopt `"legend(order(`ord') rows(1) size(small) title("block", size(small) color(black)) position(6))"'
 			local sttl ""
 			if `two' local sttl `"Mode `md': `q' blocks"'
 			else local sttl `"Posterior membership probabilities, `q' blocks"'
 			if `"`title'"' != "" & !`two' local sttl `"`title'"'
+			_nwsbmplot_tt, t(`"`sttl'"') no(`=(`notitle' & !`two')')
+			local mtt `"`r(t)'"'
 			local gopt "`nmopt' `svopt'"
 			if `two' local gopt `"nodraw name(__nwsbm_mem`md', replace)"'
-			twoway `plots', `xl' xscale(range(0.5 `=`__n' + 0.5')) yscale(range(0 1)) ylabel(0(.25)1, angle(0)) xlabel(none, noticks) ///
-				plotregion(margin(zero)) xtitle("actors, ordered by block and certainty") ytitle("probability") `legopt' title(`"`sttl'"') `gopt' `options'
+			local xlm "xlabel(none, noticks)"
+			if `useal' local xlm `"xlabel(`al_m`md'', noticks angle(90) labsize(vsmall))"'
+			twoway `plots', `xl' xscale(range(0.5 `=`__n' + 0.5')) yscale(range(0 1)) ylabel(0(.25)1, angle(0)) `xlm' ///
+				plotregion(margin(zero)) xtitle("actors, ordered by block and certainty", color(black)) ytitle("probability", color(black)) `legopt' `mtt' `gopt' `options'
 			restore
 		}
 		if `two' {
 			if `"`title'"' == "" local title `""Posterior membership probabilities""'
-			graph combine __nwsbm_mem1 __nwsbm_mem2, rows(1) title(`title') `nmopt' `svopt'
+			_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+			graph combine __nwsbm_mem1 __nwsbm_mem2, rows(1) `r(t)' `nmopt' `svopt'
 			capture graph drop __nwsbm_mem1 __nwsbm_mem2
 		}
 	}
@@ -207,25 +263,54 @@ program nwsbmplot
 		}
 		local xl ""
 		local yl ""
+		local lcl = cond(`"`linecolor'"' == "", "gs8", `"`linecolor'"')
 		if "`nolines'" == "" {
-			if "`__xl'" != "" local xl "xline(`__xl', lcolor(cranberry) lwidth(thin))"
-			if "`__yl'" != "" local yl "yline(`__yl', lcolor(cranberry) lwidth(thin))"
+			if "`__xl'" != "" local xl "xline(`__xl', lcolor(`lcl') lwidth(thin))"
+			if "`__yl'" != "" local yl "yline(`__yl', lcolor(`lcl') lwidth(thin))"
+		}
+		if `nbl' > 0 & !`useal' {
+			local nlx ""
+			local nly ""
+			local i 0
+			tokenize `"`__xlab'"'
+			while `"``=2*`i'+1''"' != "" {
+				local ++i
+				local nlx `"`nlx' ``=2*`i'-1'' "`bn`=cond(`two', e(Q1) + `i', `i')''""'
+			}
+			local i 0
+			tokenize `"`__ylab'"'
+			while `"``=2*`i'+1''"' != "" {
+				local ++i
+				local nly `"`nly' ``=2*`i'-1'' "`bn`i''""'
+			}
+			local __xlab `"`nlx'"'
+			local __ylab `"`nly'"'
+		}
+		if `useal' {
+			local __xlab `"`al_x'"'
+			local __ylab `"`al_y'"'
 		}
 		local xlab "xlabel(none, noticks)"
 		local ylab "ylabel(none, noticks)"
 		if "`nolabels'" == "" {
 			local xlab `"xlabel(`__xlab', noticks labsize(small))"'
 			local ylab `"ylabel(`__ylab', noticks angle(0) labsize(small))"'
+			if `useal' local xlab `"xlabel(`__xlab', noticks labsize(vsmall) angle(90))"'
+			if `useal' local ylab `"ylabel(`__ylab', noticks angle(0) labsize(vsmall))"'
 		}
+		local axt `"xtitle("block of receiver", color(black)) ytitle("block of sender", color(black))"'
+		if `two' local axt `"xtitle("block of mode 2", color(black)) ytitle("block of mode 1", color(black))"'
 		local what = cond("`type'" == "expected", "Expected ties", "Blocked adjacency matrix")
 		if `"`title'"' == "" {
 			local title `""`what', `e(Q)' blocks""'
 			if `two' local title `""`what', `e(Q1)' x `e(Q2)' blocks""'
 		}
 		local subopt ""
-		if "`type'" == "expected" local subopt `"subtitle("posterior expected value of the tie, `__vmin' (light) to `__vmax' (dark)", size(small))"'
+		if "`type'" == "expected" local subopt `"subtitle("posterior expected value of the tie, `__vmin' (light) to `__vmax' (dark)", size(small) color(black))"'
+		_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+		local title `"`r(t)'"'
 		twoway `plots', `xl' `yl' `xlab' `ylab' xscale(range(0.5 `=`nc'+0.5') lstyle(none)) yscale(range(0.5 `=`nr'+0.5') lstyle(none)) ///
-			legend(off) aspectratio(`=`nr'/`nc'') plotregion(margin(zero) lcolor(gs8)) xtitle("") ytitle("") title(`title') `subopt' `nmopt' `svopt' `options'
+			legend(off) aspectratio(`=`nr'/`nc'') plotregion(margin(zero) lcolor(gs8)) `axt' `title' `subopt' `nmopt' `svopt' `options'
 		restore
 	}
 	else {
@@ -269,7 +354,10 @@ program nwsbmplot
 					replace __sz = `SZ2'[1, `l'] if _n == `nrw' + `l'
 				}
 			}
-			gen str12 __lab = cond(_n <= `nrw', string(_n), string(_n - `nrw'))
+			gen str40 __lab = cond(_n <= `nrw', string(_n), string(_n - `nrw'))
+			if `nbl' > 0 forvalues k = 1/`nn' {
+				replace __lab = `"`bn`k''"' in `k'
+			}
 			local mxp = 0
 			forvalues a = 1/`nrw' {
 				forvalues b = 1/`ncl' {
@@ -332,14 +420,16 @@ program nwsbmplot
 				local c = mod(cond(`two' & `k' > `nrw', `k' - `nrw', `k') - 1, `npal') + 1
 				local lbc = cond(`usec', "white", "black")
 				local fc = cond(`usec', `"`pal`c''"', "gs12")
-				local splots `splots' (scatter __y __x if _n == `k', msymbol(O) msize(*`: word `cl' of `msz'') mcolor(`"`fc'"') mlcolor(gs4) mlabel(__lab) mlabposition(0) mlabcolor(`lbc') mlabsize(small))
+				local splots `splots' (scatter __y __x if _n == `k', msymbol(O) msize(*`: word `cl' of `msz'') mcolor(`"`fc'"') mlcolor(gs4) mlabel(__lab) mlabposition(`=cond(`nbl' > 0, 6, 0)') mlabcolor(`=cond(`nbl' > 0, "black", "`lbc'")') mlabsize(small))
 			}
 		}
 		if `"`title'"' == "" local title `""Block graph""'
 		local sub `""node size: block size; line width: connectivity (relative to the largest entry of the connectivity matrix)""'
 		if `two' local sub `""left: blocks of mode 1, right: blocks of mode 2; node size: block size; line width: connectivity""'
+		_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+		local title `"`r(t)'"'
 		twoway `eplots' `splots', legend(off) xscale(off range(-1.3 1.3)) yscale(off range(-1.3 1.3)) xlabel(none) ylabel(none) ///
-			aspectratio(1) title(`title') subtitle(`sub', size(small)) `nmopt' `svopt' `options'
+			aspectratio(1) `title' subtitle(`sub', size(small) color(black)) `nmopt' `svopt' `options'
 		restore
 	}
 	if `"`export'"' != "" {
@@ -349,4 +439,42 @@ program nwsbmplot
 		}
 		else graph export `export', replace
 	}
+end
+
+
+* title(): black text unless the user's own title() already carries options
+capture program drop _nwsbmplot_tt
+program _nwsbmplot_tt, rclass
+	syntax [, T(string asis) NO(integer 0)]
+	if `no' | `"`t'"' == "" exit
+	if strpos(`"`t'"', `"""') == 0 local t `""`t'""'
+	if strpos(`"`t'"', `"","') | strpos(`"`t'"', `"" ,"') return local t `"title(`t')"'
+	else return local t `"title(`t', color(black))"'
+end
+
+* axis and bar labels from the actors' labels (string variable, or numeric with value labels), in the order of the plots
+capture program drop _nwsbmplot_alab
+program _nwsbmplot_alab, rclass
+	syntax varname, two(integer) srt(integer)
+	local v `varlist'
+	tempvar lbs
+	capture confirm string variable `v'
+	if _rc {
+		local vl : value label `v'
+		if "`vl'" != "" quietly decode `v', generate(`lbs')
+		else quietly generate str40 `lbs' = string(`v')
+		quietly replace `lbs' = string(`v') if `lbs' == "" & `v' < .
+	}
+	else quietly generate str244 `lbs' = `v'
+	_nwsyntax `e(network)', max(1)
+	if _N != `nodes' {
+		di as error "actorlabels(): the data set has `=_N' observations; one per actor of {bf:`e(network)'} (`nodes') is needed"
+		exit 198
+	}
+	if `two' mata: sbm_setidx(`netobj'->get_modes())
+	mata: SbmActLab("`lbs'", `two', `srt')
+	return local xlab `"`__xlab'"'
+	return local ylab `"`__ylab'"'
+	return local m1 `"`__m1'"'
+	return local m2 `"`__m2'"'
 end

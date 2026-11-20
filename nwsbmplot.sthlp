@@ -19,13 +19,17 @@
 {synopt :{opt nolin:es}}matrix, expected, membership: no lines between the blocks{p_end}
 {synopt :{opt miss:ing}}matrix: show pairs with a missing tie{p_end}
 {synopt :{opt nolab:els}}matrix, expected: no block numbers on the axes{p_end}
+{synopt :{opt blocklabels(list)}}names of the blocks (mode 1 first, then mode 2; as many as there are blocks) for the axes of matrix and expected, the legend of membership and the nodes of blocks; not used by icl{p_end}
+{synopt :{opt actorlabels(varname)}}matrix, expected, membership: names of the actors (a string variable, or a numeric one with value labels, one observation per actor of the network) on the axes or under the bars; only for up to 40 actors, otherwise ignored with a note; on the axes they replace the block names{p_end}
+{synopt :{opt linec:olor(color)}}matrix, expected: colour of the lines between the blocks; default {cmd:gs8}{p_end}
+{synopt :{opt nolegend}}icl, membership: no legend box{p_end}
 {synopt :{opt sort}}matrix, expected: within a block order the actors by decreasing certainty (largest membership probability){p_end}
 {synopt :{opt col:ors(list)}}colours of the blocks (blocks, membership, icl): {cmd:default}, {cmd:gray}, or a list of Stata colour names, used in turn{p_end}
-{synopt :{opt title(text)}}title of the graph{p_end}
+{synopt :{opt title(text)}}title of the graph; {cmd:title("")} draws no title{p_end}
 {synopt :{opt name(name)}}name of the graph in memory{p_end}
 {synopt :{opt sav:ing(filename)}}save the graph as a {cmd:.gph} file{p_end}
 {synopt :{opt exp:ort(filename)}}export the graph with {helpb graph export} ({cmd:.png}, {cmd:.pdf}, {cmd:.eps}, ... by the extension; an existing file is replaced){p_end}
-{synopt :{it:twoway_options}}other options of {helpb twoway}{p_end}
+{synopt :{it:twoway_options}}other options of {helpb twoway}, such as {cmd:xtitle()} or {cmd:ytitle()}; they come last and override the defaults. Titles and axis titles are black by default; the axes of matrix and expected are titled "block of sender" and "block of receiver" ("block of mode 1" and "block of mode 2" for a two-mode network){p_end}
 {synoptline}
 
 {title:Description}
