@@ -315,3 +315,29 @@ program sbmt_frommata
 	else nwset __a*, name(`nm') undirected valued replace
 	restore
 end
+
+mata:
+// 1 if, within a block, the largest membership probability is not in decreasing order under sbm_perm(tau, 1)
+real scalar sbmt_certcheck()
+{
+	external real matrix __nwsbm_tau, __nwsbm_tau2
+	real colvector p, h, m
+	real scalar i, bad
+	bad = 0
+	for (i = 1; i <= 2; i++) {
+		if (i == 2 & cols(__nwsbm_tau2) == 0) break
+		if (i == 1) {
+			p = sbm_perm(__nwsbm_tau, 1)
+			h = sbm_hard(__nwsbm_tau)[p]
+			m = rowmax(__nwsbm_tau)[p]
+		}
+		else {
+			p = sbm_perm(__nwsbm_tau2, 1)
+			h = sbm_hard(__nwsbm_tau2)[p]
+			m = rowmax(__nwsbm_tau2)[p]
+		}
+		bad = bad + (any(h[2::rows(h)] :< h[1::(rows(h) - 1)]) | any((h[2::rows(h)] :== h[1::(rows(h) - 1)]) :& (m[2::rows(m)] :> m[1::(rows(m) - 1)])))
+	}
+	return(bad > 0)
+}
+end

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+- `nwsbmplot` new plot types: `type(icl)` (ICL against the number of blocks, the selected number marked; with `icl(exact)` the exact ICL plus the `blockmodels` ICL on a second axis; two-mode: one line per number of blocks of mode 2), `type(expected)` (posterior expected tie values T1 pi T2' by block, eight grey levels), `type(membership)` (stacked bars of the membership probabilities, ordered by block and certainty; two-mode: one panel per mode); aliases `type(data)` = `matrix` and `type(meso)` = `blocks` as in R `sbm`.
+- `nwsbmplot` new options: `sort` (actors within a block by decreasing certainty, matrix and expected), `colors()` (block colours: `default`, `gray` or a list of colours), `export()` (graph export by extension). Directed block graphs: arrowheads now end at the rim of the nodes and the two directions of a pair run side by side.
+- Dialog `nwsbmplot.dlg` has the new plots and options. New test `cscripts/test_nwsbm_plots.do`.
+- Mata library rebuilt (new helpers `sbm_perm`, `sbm_axes`, `SbmPlotExpected`, `SbmPlotMember`; `SbmPlotMatrix` has a `sort` argument): after merging with other branches that change the library, rebuild it with Stata 17.
+
 ## [0.4.0] - 2026-11-19
 - Degree-corrected two-mode model: `degreecorrected` with `model(poisson)` now also fits two-mode networks (the degree-corrected latent block model, R `greed` `DcLbm`); `icl(exact)` gives the exact ICL of `greed` for it (the terms that do not depend on the partition are left out, as in `greed`).
 - Standard errors of the covariate coefficients: `e(se_beta)` and `e(V_beta)` (inverse information of the coefficients with the block parameters profiled out, conditional on the estimated memberships); the coefficient table shows standard errors, z, p-values and confidence intervals. The R packages give none.

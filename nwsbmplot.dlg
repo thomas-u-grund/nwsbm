@@ -1,4 +1,4 @@
-/* nwsbmplot.dlg - dialog of nwsbmplot (plots after nwsbm: blocked adjacency matrix and block graph). */
+/* nwsbmplot.dlg - dialog of nwsbmplot (plots after nwsbm: blocked matrix, expected ties, memberships, block graph, ICL path). */
 VERSION 14.0
 INCLUDE _std_small
 SYNCHRONOUS_ONLY
@@ -7,36 +7,47 @@ OK ok1, label("OK")
 CANCEL can1, label("Cancel")
 SUBMIT sub1, label("Submit")
 RESET res1
-POSITION 10 10 520 300
+POSITION 10 10 520 380
 
 DIALOG main, title("nwsbmplot - Plots of a stochastic block model")
 BEGIN
   TEXT tx_type 20 14 200 ., label("Plot:")
   COMBOBOX cb_type 230 14 200 ., dropdownlist contents(typelist) values(typevalues) default(matrix) nomem
-  GROUPBOX gb_mat 10 44 500 114, label("Blocked adjacency matrix")
+  GROUPBOX gb_mat 10 44 500 134, label("Blocked adjacency matrix")
   CHECKBOX cx_shade 20 64 460 ., label("shade the blocks by their connectivity")
   CHECKBOX cx_nolines 20 90 460 ., label("no lines between the blocks")
   CHECKBOX cx_missing 20 116 460 ., label("show missing ties")
   CHECKBOX cx_nolabels 20 136 460 ., label("no block labels on the axes")
-  GROUPBOX gb_gen 10 166 500 120, label("Graph")
-  TEXT tx_title 20 186 200 ., label("Title (blank = default):")
-  EDIT ed_title 230 186 260 ., nomem
-  TEXT tx_name 20 214 200 ., label("Graph name:")
-  EDIT ed_name 230 214 120 ., nomem
-  TEXT tx_save 20 242 200 ., label("Save graph to file (.gph):")
-  FILE fi_save 230 242 260 ., save label("Browse...") filter("Stata graph (*.gph)|*.gph|All (*.*)|*.*") nomem
+  CHECKBOX cx_sort 20 156 460 ., label("order actors within a block by certainty (matrix, expected ties)")
+  GROUPBOX gb_gen 10 186 500 186, label("Graph")
+  TEXT tx_col 20 206 200 ., label("Colours of the blocks (list):")
+  EDIT ed_col 230 206 260 ., nomem
+  TEXT tx_title 20 234 200 ., label("Title (blank = default):")
+  EDIT ed_title 230 234 260 ., nomem
+  TEXT tx_name 20 262 200 ., label("Graph name:")
+  EDIT ed_name 230 262 120 ., nomem
+  TEXT tx_save 20 290 200 ., label("Save graph to file (.gph):")
+  FILE fi_save 230 290 260 ., save label("Browse...") filter("Stata graph (*.gph)|*.gph|All (*.*)|*.*") nomem
+  TEXT tx_exp 20 318 200 ., label("Export graph to file (.png, .pdf):")
+  FILE fi_exp 230 318 260 ., save label("Browse...") filter("PNG (*.png)|*.png|PDF (*.pdf)|*.pdf|All (*.*)|*.*") nomem
 END
 
 LIST typelist
 BEGIN
 	Blocked adjacency matrix
+	Expected ties
+	Membership probabilities
 	Block graph
+	ICL by number of blocks
 END
 
 LIST typevalues
 BEGIN
 	matrix
+	expected
+	membership
 	blocks
+	icl
 END
 
 PROGRAM command
@@ -57,6 +68,12 @@ BEGIN
 	if main.cx_nolabels {
 		put " nolabels"
 	}
+	if main.cx_sort {
+		put " sort"
+	}
+	if main.ed_col.isneq("") {
+		put " colors(" main.ed_col ")"
+	}
 	if main.ed_title.isneq("") {
 		put " title(" main.ed_title ")"
 	}
@@ -65,6 +82,9 @@ BEGIN
 	}
 	if main.fi_save.isneq("") {
 		put " saving(" main.fi_save ")"
+	}
+	if main.fi_exp.isneq("") {
+		put " export(" main.fi_exp ")"
 	}
 	stata
 END
