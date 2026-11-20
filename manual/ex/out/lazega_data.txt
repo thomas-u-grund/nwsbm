@@ -1,0 +1,25 @@
+. nwwebuse lazega, nwclear
+
+. nwsummarize lazega_fr
+--------------------------------------------------
+   Network name:  lazega_fr
+   Network id:  3
+   Directed: true
+   Valued: false
+   Two-mode: false
+   Nodes: 71
+   Selfloop: false
+   Arcs: 575
+   Minimum value:  0
+   Maximum value:  1
+   Density:  .116
+   Mean outdegree:  8.10
+   Temporal: false
+
+. describe, short
+
+Contains data from https://nwcommands.org/examples/lazega.nwdta
+ Observations:            71
+    Variables:            13                  12 Nov 2026 09:54
+Sorted by:
+     Note: Dataset has changed since last saved.

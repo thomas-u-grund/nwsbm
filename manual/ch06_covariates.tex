@@ -1,0 +1,19 @@
+\chapter{Covariates}\label{ch:cov}
+
+\section{Specifying covariates}
+Pair-level covariates enter the model through four options. \opt{covariates(netlist)} takes networks of the session with the same actors (for a two-mode network the same two modes, with the same assignment of actors to the modes); the other three build covariates from node variables of the dataset: \opt{absdiff(varlist)} gives $|x_i-x_j|$ for numeric variables, \opt{same(varlist)} gives $1(x_i=x_j)$ for numeric or string variables, and \opt{signeddiff(varlist)} gives $x_i-x_j$ for directed networks. Each variable adds one covariate; at most 32 covariates are allowed. Covariate networks must contain no missing values, must be symmetric when the network is undirected, and must not be constant over the pairs. For a two-mode network a node variable is compared between an actor of mode~1 and an actor of mode~2.
+
+The link of the mean (logit, log or identity) equals a block parameter plus the sum of the coefficients times the covariates (chapter~\ref{ch:model}). The matrix \texttt{e(pi)} then holds the block parameters of a pair with all covariates equal to 0, on the response scale. The coefficients are displayed after the block table with standard errors, $z$ values, $p$-values and 95\% confidence intervals, and stored in \texttt{e(beta)}, \texttt{e(se\_beta)} and \texttt{e(V\_beta)}, with the names \emph{netname}, \texttt{abs\_}\emph{var}, \texttt{same\_}\emph{var} and \texttt{diff\_}\emph{var}.
+
+\section{Example: friendship in the law firm}
+Friendship in Lazega's firm depends on whether two lawyers work in the same office, in the same practice and are of the same gender, and on the difference in seniority. The covariates are given as node variables.
+\showlog{lazega_cov}
+The coefficients are on the logit scale. Two lawyers in the same office have the odds of a friendship tie multiplied by 3.83 (the coefficient 1.34, $z=12.66$), those in the same practice by $\exp(1.13)$; the seniority difference has a small negative coefficient per year. With the covariates in the model the ICL selects two blocks instead of three, and the ICL is $-1646.99$ against $-1768.33$ without covariates (chapter~\ref{ch:compare}).
+
+\section{Standard errors and their meaning}
+The standard errors are the square roots of the diagonal of the inverse information matrix of the coefficients, with the block parameters profiled out, at the estimated memberships. They are conditional on the memberships: they do not reflect the uncertainty about which actor belongs to which block. They are checked against the standard errors of \texttt{logit}, \texttt{poisson} and \texttt{regress} for one block (chapter~\ref{ch:val}).
+
+\section{Differences from R, computing time and memory}
+The covariate models of the R packages treat missing ties of Bernoulli and Poisson networks as zeros; \nwsbm{} leaves them out (chapter~\ref{ch:model}). Degree correction, \opt{blockvar} and \opt{icl(exact)} are not available with covariates.
+
+With covariates the plugin holds dense $n\times n$ matrices, about $8(3+p+3T)n^2$ bytes for $p$ covariates and $T$ threads. The Poisson and Gaussian models need $O(n^2Q)$ operations per sweep; the Bernoulli model needs $O(n^2Q^2)$ and is the slowest. A note is shown when the number of cells exceeds one million, and networks with more than about 3000 actors (more than nine million cells) are refused. The default number of random starts of the Bernoulli covariate model is at most four.

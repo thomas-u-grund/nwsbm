@@ -1,0 +1,41 @@
+\chapter{Postestimation and stored results}\label{ch:post}
+
+\section{estat icl and estat blocks}
+\texttt{estat icl} lists the ICL, the lower bound $J$, PL, the entropy $H$ and the number of parameters for every fitted number of blocks (every pair of block numbers for a two-mode network, with the rows labelled ``$Q_1\times Q_2$''), stars the selected row, and returns the table in \texttt{r(table)}. With \opt{icl(exact)} the table holds the exact ICL. \texttt{estat blocks} lists size, proportion and within-block connectivity (for a two-mode network the mean tie value) of the blocks; it returns \texttt{r(blocks)} and, for a two-mode network, \texttt{r(blocks2)}. Both commands need a preceding \texttt{nwsbm} fit; the other \texttt{estat} subcommands are not available. Chapter~\ref{ch:karate} shows both.
+
+\section{Memberships}
+\opt{generate(stub)} saves the most probable block in the variable \emph{stub} and the posterior membership probabilities in \emph{stub}\texttt{\_p1}, \emph{stub}\texttt{\_p2}, \dots{} The variable \emph{stub} can be used with \texttt{tabulate}, as in the examples, or as a node attribute in further analyses. Row $i$ of the dataset is actor $i$ of the network. For a two-mode network a dataset row holds the block and the probabilities of its own mode. The command can be repeated after a fit with \texttt{nwsbm, generate(stub)}.
+
+\section{Stored results}
+After a fit \nwsbm{} stores the following in \texttt{e()}.
+\begin{longtable}{@{}p{0.27\textwidth}p{0.69\textwidth}@{}}
+\toprule
+\multicolumn{2}{@{}l}{Scalars}\\
+\midrule
+\texttt{e(N)} & number of actors (two-mode: \texttt{e(N1)}, \texttt{e(N2)})\\
+\texttt{e(Q)} & selected number of blocks (two-mode: \texttt{e(Q1)}, \texttt{e(Q2)}; \texttt{e(Q)} equals \texttt{e(Q1)})\\
+\texttt{e(ICL)}, \texttt{e(J)}, \texttt{e(PL)}, \texttt{e(H)} & ICL, lower bound, expected complete-data log likelihood, entropy of the memberships\\
+\texttt{e(npar)} & number of parameters of the selected fit\\
+\texttt{e(directed)}, \texttt{e(n\_missing)} & directed flag; number of pairs with a missing tie\\
+\texttt{e(sigma2)} & variance of the Gaussian model (with \opt{blockvar}: the pooled residual variance)\\
+\texttt{e(ICLbm)} & with \opt{icl(exact)}: the criterion of \blockmodels{} of the same fit\\
+\texttt{e(seed)}, \texttt{e(restarts)} & seed and number of random starts used\\
+\texttt{e(ncov)} & number of covariates\\
+\midrule
+\multicolumn{2}{@{}l}{Macros}\\
+\midrule
+\texttt{e(cmd)}, \texttt{e(model)}, \texttt{e(network)} & \texttt{nwsbm}, edge model, name of the network\\
+\texttt{e(membership)} & \texttt{SBM} (directed), \texttt{SBM\_sym} (undirected), \texttt{LBM} (two-mode): the names of \blockmodels{}\\
+\texttt{e(degreecorrected)}, \texttt{e(icltype)}, \texttt{e(blockvar)}, \texttt{e(greedy)}, \texttt{e(covariates)} & options used; names of the covariates\\
+\midrule
+\multicolumn{2}{@{}l}{Matrices}\\
+\midrule
+\texttt{e(pi)} & block connectivity from the row block to the column block: tie probability, expected tie value or mean ($Q\times Q$, or $Q_1\times Q_2$); with degree correction the rate that multiplies the degree parameters; with covariates the value at all covariates 0\\
+\texttt{e(alpha)}, \texttt{e(alpha2)} & block proportions (mode 2: \texttt{e(alpha2)})\\
+\texttt{e(blocksize)}, \texttt{e(blocksize2)} & actors by most probable block\\
+\texttt{e(ICLtable)} & one row per fitted $Q$ (or pair of block numbers)\\
+\texttt{e(beta)}, \texttt{e(se\_beta)}, \texttt{e(V\_beta)} & coefficients, standard errors and variance matrix of the covariates (conditional on the memberships)\\
+\texttt{e(sigma2\_block)} & with \opt{blockvar}: variance of every pair of blocks, laid out as \texttt{e(pi)}\\
+\bottomrule
+\end{longtable}
+\nwsbm{} stores no coefficient vector \texttt{e(b)} or \texttt{e(V)}; therefore \texttt{estimates store} cannot keep its results (see chapter~\ref{ch:compare}).

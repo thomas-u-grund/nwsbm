@@ -1,0 +1,75 @@
+. nwsbm davis, maxblocks(4 4) seed(20261120) model(poisson) degreecorrected icl(exact) gen
+> erate(d1) replace nodisplay
+
+. estat icl
+
+Model selection by the integrated classification likelihood (ICL), poisson model
+----------------------------------------------------------------------------
+      Blocks |          ICL           J          PL           H  parameters
+-------------+--------------------------------------------------------------
+      1 x 1* |      -307.71     -161.31     -161.31        0.00           1
+      1 x 2  |      -307.71     -161.31     -161.90        0.59           2
+      1 x 3  |      -307.71     -161.31     -162.50        1.19           3
+      1 x 4  |      -307.71     -161.31     -170.79        9.48           4
+      2 x 1  |      -307.71     -161.31     -161.93        0.62           2
+      2 x 2  |      -313.68     -160.81     -164.56        3.74           4
+      2 x 3  |      -312.04     -157.47     -162.57        5.11           6
+      2 x 4  |      -312.04     -157.47     -165.06        7.59           8
+      3 x 1  |      -307.71     -161.31     -162.55        1.24           3
+      3 x 2  |      -312.96     -160.91     -165.46        4.55           6
+      3 x 3  |      -312.04     -157.55     -163.32        5.77           9
+      3 x 4  |      -312.04     -157.55     -165.80        8.25          12
+      4 x 1  |      -307.71     -161.31     -174.45       13.14           4
+      4 x 2  |      -312.96     -160.94     -166.24        5.30           8
+      4 x 3  |      -312.04     -157.64     -164.06        6.42          12
+      4 x 4  |      -312.04     -157.64     -166.54        8.90          16
+----------------------------------------------------------------------------
+* selected by the largest ICL (ties within 1e-9: fewest blocks)
+
+. nwsbm davis, blocks(2 2) seed(20261120) model(poisson) degreecorrected icl(exact) greedy
+>  orderblocks generate(d3) replace
+
+Stochastic block model (poisson, degree corrected, two-mode)Actors   =        32
+Network: davis                                             Blocks    =         2 x 2
+                                                           ICL       =   -313.60
+                                                           Lower bound J=   -161.99
+
+Block sizes (mode 1):
+
+    b1  b2
+r1  10   8
+Block sizes (mode 2):
+
+    c1  c2
+r1   8   6
+Block proportions (mode 1):
+
+        b1      b2
+r1  0.5556  0.4444
+Block proportions (mode 2):
+
+        c1      c2
+r1  0.5714  0.4286
+Block connectivity, expected tie value, from the row block to the column block:
+
+        c1      c2
+b1  0.0054  0.0211
+b2  0.0167  0.0020
+
+. estat blocks
+
+Blocks of mode 1 (rows of the connectivity matrix)
+---------------------------------------------
+  Block |      Size  Proportion      Mean tie
+--------+------------------------------------
+      1 |        10      0.5556        0.0121
+      2 |         8      0.4444        0.0104
+---------------------------------------------
+
+Blocks of mode 2 (columns of the connectivity matrix)
+---------------------------------------------
+  Block |      Size  Proportion      Mean tie
+--------+------------------------------------
+      1 |         8      0.5714        0.0104
+      2 |         6      0.4286        0.0126
+---------------------------------------------

@@ -1,0 +1,36 @@
+. nwsbm zachary_bin, blocks(2) seed(20261120) nodisplay
+
+. nwsbm, generate(b2) replace
+
+Stochastic block model (bernoulli, undirected)             Actors    =        34
+Network: zachary_bin                                       Blocks    =         2
+                                                           ICL       =   -206.06
+                                                           Lower bound J=   -193.95
+
+Block sizes:
+
+    b1  b2
+r1  29   5
+Block proportions:
+
+        b1      b2
+r1  0.8517  0.1483
+Block connectivity, tie probability, from the row block to the column block:
+
+        b1      b2
+b1  0.0476
+b2  0.3680  0.4937
+
+. summarize b2 b2_p1 b2_p2
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+          b2 |         34    1.147059    .3594906          1          2
+       b2_p1 |         34    .8517287    .3550079   .0029412   .9970588
+       b2_p2 |         34    .1482713    .3550079   .0029412   .9970588
+
+. nwsbm version
+nwsbm version 1.0.0, 20nov2026
+  status                  : stochastic block models (Bernoulli, Poisson, Gaussian, degree-
+> corrected, two-mode)
+  license                 : GNU GPL-3

@@ -1,0 +1,36 @@
+. tabulate block group
+
+     nwsbm |
+     block |         group
+     (MAP) |         1          2 |     Total
+-----------+----------------------+----------
+         1 |        13         16 |        29
+         2 |         3          2 |         5
+-----------+----------------------+----------
+     Total |        16         18 |        34
+
+. nwsbm zachary_bin, blocks(3) seed(20261120) generate(block3) replace nodisplay
+
+. estat blocks
+
+Blocks
+---------------------------------------------
+  Block |      Size  Proportion        Within
+--------+------------------------------------
+      1 |        13      0.4129        0.1606
+      2 |         5      0.1491        0.4953
+      3 |        16      0.4380        0.0385
+---------------------------------------------
+Within: connectivity within the block (the diagonal of the connectivity matrix).
+
+. tabulate block3 group
+
+     nwsbm |
+     block |         group
+     (MAP) |         1          2 |     Total
+-----------+----------------------+----------
+         1 |         5          8 |        13
+         2 |         3          2 |         5
+         3 |         8          8 |        16
+-----------+----------------------+----------
+     Total |        16         18 |        34

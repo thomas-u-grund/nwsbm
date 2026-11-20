@@ -1,0 +1,32 @@
+\chapter{Estimation options}\label{ch:est}
+
+This chapter uses Lazega's law firm~\cite{lazega2001}: 71 lawyers of a New England corporate law firm, with three directed networks (advice, co-work and friendship) and attributes such as office, practice, gender and seniority. The friendship network \texttt{lazega\_fr} has 575 arcs.
+\showlog{lazega_data}
+
+\section{A directed network}
+The directed model has a full $3\times 3$ connectivity matrix. With one to six blocks the ICL selects three.
+\showlog{lazega_plain}
+Here the matrix is not symmetric: the entry in row $b$ and column $c$ is the probability of a tie from a lawyer in block $b$ to one in block $c$. Block 3 sends ties to all blocks with probabilities between 0.16 and 0.22, whereas block 2 sends hardly any ties to block 1 (0.02).
+
+\section{Choosing the number of blocks}
+\opt{blocks(\#)} fits one number of blocks; \opt{maxblocks(\#)} with the optional \opt{minblocks(\#)} fits a range and selects by the ICL. The selected number is the one with the largest ICL; cells whose ICL lies within $10^{-9}$ of the largest are ties, and the first of them in the table is chosen, which is the smaller number of blocks (for a two-mode network the smaller $Q_1$ and then the smaller $Q_2$). \texttt{estat icl} stars the same cell. If the selected number equals \opt{maxblocks()}, the maximum may lie beyond the range; raise \opt{maxblocks()} and refit. Without \opt{blocks()} and \opt{maxblocks()} the range is 1 to $\min(10,\text{actors})$; a number of blocks cannot exceed the number of actors of the mode or 100.
+
+\section{Starts, seeds and threads}
+Each number of blocks is started from a spectral clustering, from splits, from merges and from \opt{restarts()} random starts, and the fit with the largest ICL is kept. \opt{seed()} fixes the random starts; without it the seed is random and repeated runs may differ slightly. \opt{threads()} does not change the result; the following listing fits the karate club with one and with four threads and with another seed.
+\showlog{misc_seed}
+The two thread counts give the same ICL to all printed digits. Another seed can end in a slightly different local optimum (here in the fifth decimal of the ICL), although it selects the same number of blocks; with the default of ten random starts this is the normal size of the seed effect on small networks. Report the seed with your results (\texttt{e(seed)}).
+
+\section{Edge models}
+The Lazega networks can be added into one valued network, \texttt{ties3}, with values 0 to 3: how many of the three relations (advice, co-work, friendship) go from one lawyer to another. It can be modeled as counts (Poisson) or as real values (Gaussian), and with a degree correction.
+\showlog{lazega_valued}
+Several remarks apply to this listing. The ICL of the Poisson and the degree-corrected Poisson model is selected at five blocks, the largest number fitted: the range should be extended before the number of blocks is interpreted. The ICLs of the two Poisson models should not be compared directly: the degree parameters are profiled out and do not count in the number of parameters (the column is $Q^2$ in both tables), so the degree-corrected model is not penalized for them. What the comparison shows is that the degree-corrected model fits much better (an ICL of $-4189.85$ against $-4581.10$ at five blocks), which indicates that the lawyers differ strongly in how many ties they send and receive. The block-specific variances of the Gaussian model are stored in \texttt{e(sigma2\_block)}, laid out as \texttt{e(pi)}; \texttt{e(sigma2)} is then the pooled residual variance. The two Gaussian fits end in different partitions (see the cross-tabulation), which is not surprising, since the second fit lets blocks differ in variance; \opt{orderblocks} numbers the blocks of the second fit by decreasing size, so that block numbers are not comparable between the fits.
+
+\section{Exact ICL and the greedy search}
+\opt{icl(exact)} selects the number of blocks by the exact ICL of \greed{}. It is available for the Bernoulli model on one-mode networks without missing ties and for the degree-corrected Poisson model (one-mode and two-mode), and not with covariates. The ICL column of the table then holds the exact ICL, and the criterion of \blockmodels{} is kept in \texttt{e(ICLbm)}. \opt{greedy} improves the partitions by node swaps and merges on the exact ICL; it is never lower than without \opt{greedy}, and the memberships are hard (entropy 0).
+\showlog{lazega_exact}
+On the friendship network the exact ICL selects four blocks (before three with the criterion of \blockmodels{}); the exact ICL at the selected fit is $-1768.27$ against $-1768.62$ at three blocks, a small difference. With \opt{greedy} the exact ICL rises at every number of blocks for which the search finds a better partition ($-1767.84$ at four blocks); the cross-tabulation shows how the partitions of the two fits relate.
+
+\section{Speed}
+The cost of an iteration without covariates grows with the number of ties and blocks, not with the square of the number of actors, but each number of blocks is started many times. The following listing, produced on one computer, shows the effect of \opt{fast} and of threads on random networks of 200 and 500 actors (edge probability 0.05, one to six blocks); the times depend on the computer and its load.
+\showlog{misc_timing}
+\opt{fast} limits the random starts to two and drops the merge pass; use it, or a smaller \opt{restarts()}, for large networks.

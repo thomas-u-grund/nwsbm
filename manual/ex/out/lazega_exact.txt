@@ -1,0 +1,51 @@
+. nwsbm lazega_fr, maxblocks(6) seed(20261120) icl(exact) generate(e1) replace nodisplay
+
+. estat icl
+
+Model selection by the integrated classification likelihood (ICL), bernoulli model
+----------------------------------------------------------------------------
+      Blocks |          ICL           J          PL           H  parameters
+-------------+--------------------------------------------------------------
+          1  |     -1793.69    -1780.54    -1780.54        0.00           1
+          2  |     -1781.95    -1749.10    -1754.66        5.56           4
+          3  |     -1768.62    -1718.38    -1725.77        7.39           9
+          4* |     -1768.27    -1699.30    -1707.07        7.77          16
+          5  |     -1789.35    -1689.59    -1694.56        4.97          25
+          6  |     -1800.47    -1672.08    -1677.77        5.69          36
+----------------------------------------------------------------------------
+* selected by the largest ICL (ties within 1e-9: fewest blocks)
+
+. display "exact ICL: " %9.2f e(ICL) "   criterion of blockmodels at the same fit: " %9.2f
+>  e(ICLbm)
+exact ICL:  -1768.27   criterion of blockmodels at the same fit:  -1781.55
+
+. nwsbm lazega_fr, maxblocks(6) seed(20261120) icl(exact) greedy generate(e2) replace nodi
+> splay
+
+. estat icl
+
+Model selection by the integrated classification likelihood (ICL), bernoulli model
+----------------------------------------------------------------------------
+      Blocks |          ICL           J          PL           H  parameters
+-------------+--------------------------------------------------------------
+          1  |     -1793.69    -1780.54    -1780.54        0.00           1
+          2  |     -1781.61    -1751.11    -1751.11        0.00           4
+          3  |     -1768.55    -1719.93    -1719.93        0.00           9
+          4* |     -1767.84    -1699.15    -1699.15        0.00          16
+          5  |     -1787.79    -1684.54    -1684.54        0.00          25
+          6  |     -1794.72    -1664.73    -1664.73        0.00          36
+----------------------------------------------------------------------------
+* selected by the largest ICL (ties within 1e-9: fewest blocks)
+
+. tabulate e1 e2
+
+     nwsbm |
+     block |              nwsbm block (MAP)
+     (MAP) |         1          2          3          4 |     Total
+-----------+--------------------------------------------+----------
+         1 |         1          0          0          8 |         9
+         2 |         0          0         18          0 |        18
+         3 |         0         22          0          0 |        22
+         4 |        22          0          0          0 |        22
+-----------+--------------------------------------------+----------
+     Total |        23         22         18          8 |        71

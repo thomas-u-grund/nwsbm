@@ -9,3 +9,13 @@ authors:
 version: 1.0.1
 date-released: '2026-11-20'
 license: GPL-3.0-only
+preferred-citation:
+  type: manual
+  title: "nwsbm: Stochastic block models for networks in Stata. Manual"
+  authors:
+    - family-names: Grund
+      given-names: Thomas U.
+  year: 2026
+  publisher:
+    name: Zenodo
+  doi: 10.5281/zenodo.24398296

@@ -1,0 +1,10 @@
+\chapter{Comparing models}\label{ch:compare}
+
+\section{Within \nwsbm{}}
+Block models of the same network can be compared by the ICL: the number of blocks, the edge model's covariates and the choice between the Poisson and the Gaussian model all change the ICL, and the largest value is preferred. Fits of different networks, fits with different edge models and fits of the one-mode and the two-mode model are not comparable. With \opt{icl(exact)} the ICL is the exact criterion of \greed{}, which is a different quantity from the criterion of \blockmodels{}: compare values only of the same kind. As noted in chapter~\ref{ch:est}, the degree parameters of the degree-corrected model are not counted among the parameters, so its ICL should not be compared with that of the model without correction.
+
+The listing below fits the friendship network of the law firm without and with covariates. The covariates raise the ICL from $-1768.33$ (three blocks, nine parameters) to $-1646.99$ (two blocks, eight parameters): the pair-level information explains much of what the third block captured.
+
+\section{nwcompare}
+The core command \texttt{nwcompare} lists the fit statistics of stored estimation results: for \nwsbm{} the number of actors $N$, the expected complete-data log likelihood PL, the number of parameters $k$ and the ICL. \nwsbm{} stores no coefficient vector, so \texttt{estimates store} cannot keep its results: \texttt{nwcompare .} lists the active results only, and restoring another model afterwards replaces them. Fit the block model last, or call \texttt{nwcompare} again after fitting it. AIC and BIC are not computed for block models (a period is shown); the ICL takes their role. The note printed by \texttt{nwcompare} warns that criteria of different model families (ERGM, latent space, block model) are not always comparable, because they are built on different likelihoods and different observation counts.
+\showlog{compare_icl}

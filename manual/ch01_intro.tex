@@ -1,0 +1,38 @@
+\chapter{Introduction and installation}
+
+\section{What \nwsbm{} does}
+\nwsbm{} fits stochastic block models to a network that is observed once. The actors are sorted into blocks that are not observed, and the distribution of a tie depends only on the blocks of the two actors involved. The result is a partition of the actors into groups that tie to others in the same way, a small matrix that says how likely ties are within and between the blocks, and, for every actor, the probability of belonging to each block. The number of blocks is not set in advance: the program fits every number of blocks in a range and reports the one with the largest integrated classification likelihood (ICL). Blocks are not communities: a block can be a core that ties to everybody, a periphery that ties only to the core, or two sides that tie only to each other.
+
+The package fits the following models.
+\begin{itemize}[nosep]
+\item The stochastic block model for one-mode networks, undirected or directed, with binary ties (Bernoulli), counts (Poisson) or real-valued ties (Gaussian); ties may be missing.
+\item The degree-corrected stochastic block model (Poisson) for one-mode and two-mode networks.
+\item The latent block model for two-mode networks, with its own blocks for the actors of each mode.
+\item Dyadic covariates (networks and differences of node variables) for all three edge models, one-mode and two-mode, with standard errors of the coefficients.
+\item The exact ICL with conjugate priors and a greedy search on it, as in the R package \greed{}.
+\end{itemize}
+Not available are multiplex and dynamic networks, zero-inflated models, and covariates together with degree correction or with block-specific variances.
+
+\section{Requirements}
+\nwsbm{} is a separate package that builds on the core package \texttt{nwcommands}. It \textbf{requires nwcommands (core), version 3.29.0 or later} (the version for which this manual was written and tested) and Stata 17 or later. All computation runs in a compiled plugin that ships with the package for macOS, Linux and Windows; there is no slower fallback, and without a working plugin \nwsbm{} stops with an error that names the plugin. The listings in this manual were produced with Stata 17 on macOS.
+
+\section{Installation}
+Install the core first and then \nwsbm{}:
+\begin{lstlisting}
+. net install nwcommands, from(https://nwcommands.org/net/) replace
+. nwinstall, everything
+\end{lstlisting}
+\texttt{nwinstall, everything} installs the core and all model packages; after \texttt{nwinstall, all} (core only) add the model packages with \texttt{nwinstall, models}. To install \nwsbm{} alone:
+\begin{lstlisting}
+. net install nwsbm, from(https://raw.githubusercontent.com/thomas-u-grund/nwsbm/main/)
+\end{lstlisting}
+Every release is tagged on GitHub, and each tag has its own address; for a reproducible analysis install the tagged release that produced it, here
+\begin{lstlisting}
+. net install nwsbm, from(https://raw.githubusercontent.com/thomas-u-grund/nwsbm/v1.0.0/) replace
+\end{lstlisting}
+To check the installation type \texttt{nwsbm version}; it prints the version of the package and the plugin in use and stores the version in \texttt{r(version)}. Quote it when you report an analysis. Updating the core never overwrites \nwsbm{}, and updating \nwsbm{} never changes the core. The core package describes installation on computers without internet access or administrator rights, and what to do when the plugin of your platform does not load (it can be compiled on the computer).
+
+\section{How to read this manual}
+Chapter~\ref{ch:model} describes the models and the estimator. Chapter~\ref{ch:syntax} gives the syntax and all options. Chapter~\ref{ch:karate} works through a first example, the karate club, and chapter~\ref{ch:est} the estimation options with the law firm of Lazega. Covariates are the subject of chapter~\ref{ch:cov}, two-mode networks of chapter~\ref{ch:two}. Chapters~\ref{ch:post} and~\ref{ch:plots} describe the postestimation commands and the plots, chapter~\ref{ch:compare} the comparison of models. Chapter~\ref{ch:val} reports what the package was checked against, and chapter~\ref{ch:limits} the limits. Every command also has a help file (\texttt{help nwsbm}, \texttt{help nwsbmplot}) with the same syntax. The listings are real output; they are produced by the do-files in \texttt{manual/ex} of the package repository.
+
+The data sets of the examples (Zachary's karate club, Lazega's law firm, the Southern women of Davis, Gardner and Gardner) are loaded from the nwcommands website with \texttt{nwwebuse}; see the data-set page of the website for their sources.

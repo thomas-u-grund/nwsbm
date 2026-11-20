@@ -14,4 +14,5 @@ The software was developed with Claude Code (Anthropic), an AI coding assistant,
 
 ## How to cite
 
-Grund, T. U. (2026). nwsbm: a Stata package (version 1.0.1).
+Grund, T. U. (2026). nwsbm: Stochastic block models for networks in Stata. Manual. Zenodo. https://doi.org/10.5281/zenodo.24398296
+The DOI is the one of all versions of the manual. Please also report the exact version of the package that produced your results, as printed by `nwsbm version`.

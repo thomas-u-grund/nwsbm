@@ -1,0 +1,31 @@
+. nwsbm zachary_bin, maxblocks(5) seed(20261120) generate(block) replace
+
+Stochastic block model (bernoulli, undirected)             Actors    =        34
+Network: zachary_bin                                       Blocks    =         2
+                                                           ICL       =   -206.06
+                                                           Lower bound J=   -193.95
+
+--------------------------------------------------------------
+      Blocks |         ICL           J          PL  parameters
+-------------+------------------------------------------------
+          1  |     -229.37     -226.20     -226.20           1
+          2* |     -206.06     -193.95     -194.80           3
+          3  |     -216.63     -189.07     -194.11           6
+          4  |     -218.32     -177.58     -181.38          10
+          5  |     -230.01     -171.03     -175.49          15
+--------------------------------------------------------------
+* selected by the largest ICL
+
+Block sizes:
+
+    b1  b2
+r1  29   5
+Block proportions:
+
+        b1      b2
+r1  0.8517  0.1483
+Block connectivity, tie probability, from the row block to the column block:
+
+        b1      b2
+b1  0.0476
+b2  0.3680  0.4937

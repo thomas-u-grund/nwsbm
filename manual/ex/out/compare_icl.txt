@@ -1,0 +1,27 @@
+. quietly nwsbm lazega_fr, maxblocks(6) seed(20261120)
+
+. display "no covariates:       Q = " e(Q) ", ICL = " %9.2f e(ICL) ", parameters = " e(npa
+> r)
+no covariates:       Q = 3, ICL =  -1768.33, parameters = 9
+
+. quietly nwsbm lazega_fr, maxblocks(6) seed(20261120) same(office practice gender) absdif
+> f(seniority)
+
+. display "with covariates:     Q = " e(Q) ", ICL = " %9.2f e(ICL) ", parameters = " e(npa
+> r)
+with covariates:     Q = 2, ICL =  -1646.99, parameters = 8
+
+. nwcompare .
+
+Fit statistics of stored estimation results
+------------------------------------------------------------------------------
+Model       Command  Network        N   k  log lik.     AIC      BIC      ICL
+------------------------------------------------------------------------------
+(active)    nwsbm    lazega_fr     71   8  -1610.8        .        .  -1647.0
+------------------------------------------------------------------------------
+(active): log likelihood is the expected complete-data log likelihood PL (the
+  memberships are part of the data); ICL is the criterion of the block model; N is the
+  number of actors.
+Criteria of different model families (ERGM, latent space, block model) are not always
+  comparable: they are built on different likelihoods and different observation counts.
+  Compare within a family first.

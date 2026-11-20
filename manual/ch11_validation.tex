@@ -1,0 +1,27 @@
+\chapter{Validation against the R packages}\label{ch:val}
+
+This chapter reports what the package was checked against; the checks are part of the test suite of the package and were run on macOS with Stata 17 (the test suite also covers recovery of planted partitions and error paths). Test networks were simulated in R with fixed seeds; the references are \sbmR{} 1.0.0 and \blockmodels{} 1.2.1 (which \sbmR{} calls), and \greed{} 0.6.2. In each comparison the memberships are compared by the adjusted Rand index (ARI) after matching the blocks.
+
+\begin{center}
+\small
+\begin{tabular}{p{0.28\textwidth}p{0.18\textwidth}p{0.44\textwidth}}
+\toprule
+Model & Reference & Result recorded\\
+\midrule
+Bernoulli, undirected and directed, with missing ties (8 networks) & \sbmR{} 1.0.0 & same number of blocks, ARI 1.0, ICL equal at the selected number of blocks to a relative $10^{-5}$ and, at other numbers of blocks, never worse than R by more than 0.3\%\\
+Poisson and Gaussian, undirected, directed, with missing ties (6 networks) & \sbmR{} 1.0.0 & same number of blocks, ARI 1.0, ICL at every stored number of blocks equal to a relative $5\cdot10^{-8}$, connectivity matrices and Gaussian variance equal to four decimals\\
+Two-mode, Bernoulli, Poisson, Gaussian (4 networks) & \sbmR{}, \opt{estimateBipartiteSBM} & same numbers of blocks, ARI 1.0, ICL at every stored cell equal to a relative $5\cdot10^{-8}$, connectivity equal to $10^{-4}$\\
+Degree-corrected Poisson, one-mode (3 networks) & \greed{} 0.6.2 & same number of blocks; ARI 1.0, 1.0 and 0.987\\
+Exact ICL, Bernoulli and degree-corrected Poisson (5 networks) & \greed{} 0.6.2 & equal to a relative $10^{-6}$ at identical partitions; on one network the partitions differ by two actors and the value of \greed{} is larger by 0.05 (relative $7\cdot10^{-6}$)\\
+Degree-corrected two-mode (3 networks) & \greed{} 0.6.2 & same numbers of blocks, exact ICL equal to a relative $5\cdot10^{-8}$, ARI 1\\
+Greedy search (8 networks) & \greed{} 0.6.2 & exact ICL not below that of \greed{} at the selected number of blocks (within a relative $10^{-7}$ or larger)\\
+Covariates, Bernoulli, Poisson, Gaussian, one-mode and two-mode (9 networks) & \sbmR{} 1.0.0 with \texttt{fast = FALSE} & same number of blocks, ARI 1.0, ICL at the selected number of blocks equal to a relative $3\cdot10^{-8}$ (Bernoulli two-mode excepted, see below), coefficients equal to $3\cdot10^{-5}$; one-block fits equal to \texttt{glm}/\texttt{lm} to $10^{-6}$\\
+Standard errors of the coefficients & \texttt{logit}, \texttt{poisson}, \texttt{regress} & equal for one block (relative $10^{-5}$ or better, two-mode too); with several blocks, within 1 percent of the regression on block-pair dummies at the hard partition\\
+Block variances & planted values and empirical block statistics & planted blocks that differ only in variance are found (ARI at least 0.9); block means and variances equal the empirical ones within 3 percent\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Deviations that are not errors.} For the Bernoulli two-mode model with covariates the ICL cannot be compared with \blockmodels{}, because its PL exceeds the maximal log likelihood (the coefficient is 0.012 apart). The R covariate models treat missing ties of Bernoulli and Poisson networks as zeros, which \nwsbm{} does not, so fixtures with missing ties are not compared there. Away from the selected number of blocks the two programs can end in different local optima. The standard errors, \opt{blockvar}, \opt{sigma2()} and \opt{orderblocks} have no R reference; they were checked against the direct computations named in the table.
+
+\paragraph{Recovery of planted partitions.} In networks of 100 actors with three planted blocks and a between-block tie probability of 0.10, the memberships are recovered perfectly from a within-block probability of 0.5 (undirected) and nearly perfectly (directed) from 0.3; below about 0.2 no method recovers the blocks. The Poisson, Gaussian, degree-corrected and two-mode models select the planted number of blocks with an ARI of at least 0.90 on the simulated networks of the test suite (the degree-corrected one with strongly heterogeneous degrees reaches 0.90; the plain Poisson model splits such networks into too many blocks).

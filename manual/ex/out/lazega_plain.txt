@@ -1,0 +1,33 @@
+. nwsbm lazega_fr, maxblocks(6) seed(20261120) generate(b0) replace
+
+Stochastic block model (bernoulli, directed)               Actors    =        71
+Network: lazega_fr                                         Blocks    =         3
+                                                           ICL       =  -1768.33
+                                                           Lower bound J=  -1718.38
+
+--------------------------------------------------------------
+      Blocks |         ICL           J          PL  parameters
+-------------+------------------------------------------------
+          1  |    -1784.79    -1780.54    -1780.54           1
+          2  |    -1773.81    -1749.10    -1754.66           4
+          3* |    -1768.33    -1718.38    -1725.77           9
+          4  |    -1781.55    -1699.30    -1707.07          16
+          5  |    -1809.48    -1689.59    -1694.56          25
+          6  |    -1841.63    -1672.08    -1677.77          36
+--------------------------------------------------------------
+* selected by the largest ICL
+
+Block sizes:
+
+    b1  b2  b3
+r1  27  25  19
+Block proportions:
+
+        b1      b2      b3
+r1  0.3782  0.3529  0.2689
+Block connectivity, tie probability, from the row block to the column block:
+
+        b1      b2      b3
+b1  0.1111  0.0233  0.0962
+b2  0.0222  0.2050  0.1007
+b3  0.1803  0.1605  0.2225

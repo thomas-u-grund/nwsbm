@@ -1,0 +1,40 @@
+. estat icl
+
+Model selection by the integrated classification likelihood (ICL), bernoulli model
+----------------------------------------------------------------------------
+      Blocks |          ICL           J          PL           H  parameters
+-------------+--------------------------------------------------------------
+          1  |      -229.37     -226.20     -226.20        0.00           1
+          2* |      -206.06     -193.95     -194.80        0.85           3
+          3  |      -216.63     -189.07     -194.11        5.05           6
+          4  |      -218.32     -177.58     -181.38        3.80          10
+          5  |      -230.01     -171.03     -175.49        4.46          15
+----------------------------------------------------------------------------
+* selected by the largest ICL (ties within 1e-9: fewest blocks)
+
+. estat blocks
+
+Blocks
+---------------------------------------------
+  Block |      Size  Proportion        Within
+--------+------------------------------------
+      1 |        29      0.8517        0.0476
+      2 |         5      0.1483        0.4937
+---------------------------------------------
+Within: connectivity within the block (the diagonal of the connectivity matrix).
+
+. display "selected: " e(Q) " blocks, ICL " %9.3f e(ICL)
+selected: 2 blocks, ICL  -206.055
+
+. matrix list e(pi)
+
+symmetric e(pi)[2,2]
+           b1         b2
+b1  .04758031
+b2  .36799278  .49368109
+
+. matrix list e(alpha)
+
+e(alpha)[1,2]
+           b1         b2
+r1  .85172826  .14827174

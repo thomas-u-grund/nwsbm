@@ -1,0 +1,50 @@
+\chapter{Data and syntax}\label{ch:syntax}
+
+\section{The data}
+\nwsbm{} works on a network of the nwcommands family, called \emph{netname} below: a one-mode network (undirected or directed, binary or valued) or a two-mode network. The flags of the network decide the model: an undirected network gets one symmetric connectivity matrix, a directed one a full matrix, and a two-mode network the latent block model. There is no option to override them. Self-loops of a one-mode network are ignored; ties with a missing value are left out of the likelihood. A network can be created from edge lists or matrices with the commands of the core (\texttt{nwfromedge}, \texttt{nwset}, \texttt{nwimport}, \dots) or loaded with \texttt{nwwebuse}. \texttt{nwsummarize} shows the flags.
+
+\label{sec:twodata}For a two-mode network the nwcommands convention puts the columns of the wide matrix into mode~1 and the rows into mode~2; the numbers of blocks \opt{blocks(\#1 \#2)} are given in the order mode~1, mode~2. The network needs at least three actors (per mode, for two-mode networks). The edge model must fit the ties: \opt{model(bernoulli)} needs ties that are 0 or 1, \opt{model(poisson)} non-negative integers, \opt{model(gaussian)} accepts any real values. Node variables used for covariates are read from the dataset: row $i$ is actor $i$ of the network, as with \opt{generate()}.
+
+\section{Syntax}
+\begin{lstlisting}
+nwsbm netname [, options]
+nwsbm [, generate(stub) replace]            (replay after a fit)
+nwsbm version
+estat icl
+estat blocks
+nwsbmplot [, options]
+\end{lstlisting}
+
+\section{Options of nwsbm}
+\begin{longtable}{@{}p{0.30\textwidth}p{0.66\textwidth}@{}}
+\toprule
+Option & Meaning\\
+\midrule
+\endhead
+\opt{blocks(\#)} & fit exactly this number of blocks; two numbers, \opt{blocks(\#1 \#2)}, for a two-mode network (blocks of mode 1 and of mode 2)\\
+\opt{maxblocks(\#)} & fit every number of blocks from \opt{minblocks()} to this value and select by ICL; default $\min(10,\text{actors})$ when \opt{blocks()} is not given; two numbers for a two-mode network (all pairs are fitted)\\
+\opt{minblocks(\#)} & smallest number of blocks fitted with \opt{maxblocks()}; default 1; two numbers for a two-mode network\\
+\opt{model(name)} & \opt{bernoulli} (default), \opt{poisson} or \opt{gaussian}\\
+\opt{degreecorrected} & degree-corrected block model; with \opt{model(poisson)}, one-mode and two-mode networks\\
+\opt{sigma2(\#)} & fix the variance of the Gaussian model; default: one common variance, estimated\\
+\opt{blockvar} & Gaussian model with a variance for every pair of blocks\\
+\opt{icl(type)} & \opt{blockmodels} (default) or \opt{exact}, the exact ICL with conjugate priors of \greed{}\\
+\opt{greedy} & with \opt{icl(exact)}: improve the partitions by node swaps and merges on the exact ICL\\
+\opt{orderblocks} & number the blocks by decreasing size\\
+\opt{covariates(netlist)} & dyadic covariates: networks of the session with the same actors (for a two-mode network, the same two modes)\\
+\opt{absdiff(varlist)} & covariates $|x_i-x_j|$ from numeric node variables\\
+\opt{same(varlist)} & covariates $1(x_i=x_j)$ from node variables (numeric or string)\\
+\opt{signeddiff(varlist)} & covariates $x_i-x_j$ from numeric node variables; directed networks only\\
+\opt{seed(\#)} & random-number seed of the starts; default random\\
+\opt{restarts(\#)} & extra random starts per number of blocks (in addition to the spectral, split and merge starts); default 10 for networks with up to 500 actors, 4 up to 1500, 2 above (at most 4 for the Bernoulli model with covariates)\\
+\opt{threads(\#)} & number of threads; default 0, one per core; the result does not depend on it\\
+\opt{fast} & at most two random starts per number of blocks and no merge pass; for large networks\\
+\opt{generate(stub)} & save the memberships: \emph{stub} holds the most probable block, \emph{stub}\texttt{\_p1}, \emph{stub}\texttt{\_p2}, \dots{} the posterior membership probabilities (two-mode: the block and probabilities of the actor's own mode)\\
+\opt{replace} & allow \opt{generate()} to overwrite existing variables\\
+\opt{nodisplay} & suppress the output\\
+\bottomrule
+\end{longtable}
+
+\section{Errors}
+Incompatible options stop with return code 198 and a message that names the conflict; the following listing shows several of them. A variable named by \opt{generate()} that already exists stops the command with code 110 unless \opt{replace} is given. Without a compiled plugin the command stops with code 601.
+\showlog{misc_errors}

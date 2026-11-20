@@ -1,0 +1,18 @@
+. nwwebuse davis, nwclear
+
+. nwsummarize davis
+--------------------------------------------------
+   Network name:  davis
+   Network id:  1
+   Directed: false
+   Valued: false
+   Two-mode: true
+   Nodes: 32
+      Level 1: 18 (woman)
+      Level 2: 14 (event)
+   Selfloop: false
+   Edges: 89
+   Minimum value:  0
+   Maximum value:  1
+   Density:  .353
+   Temporal: false

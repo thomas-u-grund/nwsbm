@@ -1,0 +1,15 @@
+\chapter{Two-mode networks}\label{ch:two}
+
+For a two-mode network \nwsbm{} fits the latent block model: the actors of the two modes have their own blocks, and the tie between an actor of mode~1 and one of mode~2 depends on the two blocks. The numbers of blocks are given as pairs: \opt{blocks(3 2)} fits three blocks of mode 1 and two of mode 2; \opt{maxblocks(4 4)} fits all 16 pairs from $1\times1$ to $4\times4$ and selects by the ICL. Results then carry both modes: \texttt{e(Q1)}, \texttt{e(Q2)}, \texttt{e(N1)}, \texttt{e(N2)} (\texttt{e(Q)} equals \texttt{e(Q1)}), \texttt{e(alpha2)} and \texttt{e(blocksize2)} for mode~2, and \texttt{e(pi)} is the $Q_1\times Q_2$ matrix from the blocks of mode~1 (rows) to the blocks of mode~2 (columns).
+
+\section{Example: the Southern women}
+Davis, Gardner and Gardner~\cite{davis1941} recorded the attendance of 18 women at 14 social events; the network has 89 ties.
+\showlog{davis_data}
+With the Bernoulli latent block model and up to four blocks per mode the ICL selects two blocks of women and three blocks of events.
+\showlog{davis_plain}
+The table has one row per pair of block numbers. Block 1 of the women (nine women) attends the events of the first block with a probability of 0.58 and of the second block with 0.65, but hardly ever the third (0.01); block 2 (nine women) attends the second and third blocks of events.
+
+\section{Degree-corrected two-mode model and exact ICL}
+With \opt{degreecorrected} and \opt{model(poisson)}, every actor of both modes has a degree parameter. The exact ICL is available for this model. On the Southern women the exact ICL does not support more than one block per mode: all cells that are tied at $-307.71$ lead to the first row, $1\times1$. With two blocks per mode and the greedy search the following fit is obtained; for a two-mode network \texttt{estat blocks} reports the blocks of each mode with their mean tie value.
+\showlog{davis_dc}
+\opt{orderblocks} numbers the blocks of each mode by decreasing size, separately for each mode. The exact ICL of the degree-corrected two-mode model leaves out the terms that do not depend on the partition, as \greed{} does; its values cannot be compared with those of a one-mode fit or with the Bernoulli ICL.

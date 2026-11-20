@@ -19,3 +19,7 @@ the degree-corrected Poisson model, the latent block model for two-mode networks
 merge / random starts evaluated by threads, `estat` output, plots (`nwsbmplot`: blocked adjacency matrix, block graph) and dialogs (`db nwsbm`, `db nwsbmplot`). The ICL, the number
 of blocks and the memberships agree with R `sbm` / `blockmodels` (Bernoulli, Poisson, Gaussian, two-mode) and R `greed` (degree-corrected model, exact ICL) on the test fixtures
 (`dev/ref_sbm.R`, `dev/ref_valued.R`, `dev/ref_dc.R`, `cscripts/`). Dyadic covariates (networks and node-variable differences) for all three edge models, one-mode and two-mode, agree with R `sbm` on the fixtures of `dev/ref_cov.R`. The degree-corrected two-mode model and its exact ICL agree with R `greed` (`dev/ref_dclbm.R`); the covariate coefficients come with standard errors (conditional on the memberships, which the R packages do not give); `greedy` improves the partitions on the exact ICL as `greed` does; `blockvar` fits a variance for every pair of blocks. Not yet implemented: multiplex and dynamic networks, zero-inflated models. See `nwsbm.sthlp`, `TODO.md` and `dev/DESIGN.md`.
+
+## Manual
+
+A user manual (PDF in `manual/`, with the LaTeX source and the do-files of its examples) is archived at Zenodo: <https://doi.org/10.5281/zenodo.24398296> (all versions). Cite the manual by that address together with the package version printed by `nwsbm version`.

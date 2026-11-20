@@ -1,0 +1,86 @@
+\documentclass[11pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs,longtable,array,amsmath,amssymb,xcolor,listings,hyperref,enumitem,titlesec,etoolbox}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,citecolor=blue!50!black,pdftitle={nwsbm: Stochastic block models for networks in Stata. Manual},pdfauthor={Thomas U. Grund}}
+\lstdefinestyle{stata}{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{black!4},frame=single,rulecolor=\color{black!20},breaklines=true,columns=fullflexible,keepspaces=true,xleftmargin=2pt,xrightmargin=2pt,aboveskip=8pt,belowskip=8pt}
+\lstset{style=stata}
+\setlength{\emergencystretch}{3em}
+\newcommand{\nwsbm}{\texttt{nwsbm}}
+\newcommand{\blockmodels}{\texttt{blockmodels}}
+\newcommand{\sbmR}{\texttt{sbm}}
+\newcommand{\greed}{\texttt{greed}}
+% \opt sets an option or effect name in typewriter type and lets long names break after ( : , _ and / so that they do not run into the next table column
+\ExplSyntaxOn
+\tl_new:N \l__nwsbm_opt_tl
+\NewDocumentCommand{\opt}{m}
+  {
+    \tl_set:Nn \l__nwsbm_opt_tl {#1}
+    \regex_replace_all:nnN { ([\:\,]) } { \1 \c{allowbreak}\cB\{\cE\} } \l__nwsbm_opt_tl
+    \regex_replace_all:nnN { \c{\_} } { \c{\_} \c{allowbreak}\cB\{\cE\} } \l__nwsbm_opt_tl
+    \regex_replace_all:nnN { ([a-z])([A-Z]) } { \1 \c{allowbreak}\cB\{\cE\} \2 } \l__nwsbm_opt_tl
+    \regex_replace_all:nnN { (/) } { \1 \c{allowbreak}\cB\{\cE\} } \l__nwsbm_opt_tl
+    \regex_replace_all:nnN { ([\|\(\[=]) } { \1 \c{allowbreak}\cB\{\cE\} } \l__nwsbm_opt_tl
+    \texttt{ \tl_use:N \l__nwsbm_opt_tl }
+  }
+\ExplSyntaxOff
+% the listing of the output of an example (manual/ex/out/<name>.txt, written by the do-files of manual/ex)
+\newcommand{\showlog}[1]{\lstinputlisting{ex/out/#1.txt}}
+\newcommand{\inc}[1]{\typeout{>>>#1}\input{#1}}
+\newcommand{\manualseries}{1.0}
+% The manual is labelled by the minor series (valid for 1.0.x): change \manualseries only for a new minor or major release whose documented behaviour changed.
+\newcommand{\pkgversion}{1.0.0}
+\newcommand{\pkgdate}{20 November 2026}
+% Exact version and date of the release that produced the listings (rerun the examples when it changes).
+% DOI of the archived manual (Zenodo). PLACEHOLDER: no record exists yet; put the all-versions DOI of the new record here (for example 10.5281/zenodo.NNNNNNN) after the upload and rebuild. Nothing is printed for an empty DOI.
+\newcommand{\manualdoi}{10.5281/zenodo.24398296}% DOI of the Zenodo record
+\newcommand{\citedoi}{\ifdefempty{\manualdoi}{}{ Zenodo. \url{https://doi.org/\manualdoi}}}
+\title{\textbf{nwsbm}\\[4pt]\large Stochastic block models for networks in Stata\\ (a package that builds on \texttt{nwcommands})\\[6pt]\normalsize User manual and reference}
+\author{Thomas U. Grund\\ RWTH Aachen University}
+\date{This manual describes \texttt{nwsbm} \manualseries.x\\ (examples produced with \texttt{nwsbm} \pkgversion, \pkgdate)}
+\begin{document}
+\maketitle
+\begin{quote}\noindent\textbf{How to cite.} This manual describes the series~\manualseries{} of \nwsbm{} (it holds for all versions \manualseries.x); the listings were produced with version~\pkgversion{} (\pkgdate). It is the citable reference for the package. Please cite it as:\par\smallskip
+\noindent Grund, T.~U. (2026). \emph{nwsbm: Stochastic block models for networks in Stata. Manual.}\citedoi\par\smallskip
+\noindent Please also report the exact version of the program that produced your results, as printed by \texttt{nwsbm version} and stored in \texttt{r(version)}.
+\end{quote}
+\chapter*{Acknowledgments}\addcontentsline{toc}{chapter}{Acknowledgments}
+\nwsbm{} follows the R packages \blockmodels{} (Leger~\cite{leger2016}), \sbmR{} (Chiquet, Donnet, Barbillon and Lacoste~\cite{chiquet2026}) and \greed{} (C\^ome and Jouvin~\cite{greedpkg}; method in~\cite{come2021}) and exists because of them: its objective function, its integrated classification likelihood (ICL), its model names and its exact ICL are those of these packages. The stochastic block model is due to Holland, Laskey and Leinhardt~\cite{holland1983} and Nowicki and Snijders~\cite{nowicki2001}, the variational EM estimator to Daudin, Picard and Robin~\cite{daudin2008}, the latent block model for two-mode networks to Govaert and Nadif~\cite{govaert2003}, the degree-corrected model to Karrer and Newman~\cite{karrer2011}, and the integrated classification likelihood to Biernacki, Celeux and Govaert~\cite{biernacki2000}. The Stata code and the C plugin were written independently from these publications; no code of the R packages is included, and their results are used as the reference against which the code was checked.
+
+\nwsbm{} is not affiliated with or endorsed by the authors of \blockmodels{}, \sbmR{} or \greed{}, and its errors are the author's. It is meant for researchers who work in Stata or prefer it to R. It is not a replacement for the R packages, which remain the reference implementations.
+
+\paragraph{Use of an AI coding assistant.} The software was developed with Claude Code (Anthropic), an AI coding assistant, working under the author's direction. It helped port the algorithms into Stata, Mata and C and helped write the tests. The author specified the scope, reviewed the code, and is responsible for the package. Its correctness rests on validation, not on the assistant: the criteria, the memberships and the numbers of blocks are compared numerically with those of the R packages on a set of test networks, and the test suite reruns these comparisons.
+
+\tableofcontents
+\inc{ch01_intro}
+\inc{ch02_model}
+\inc{ch03_syntax}
+\inc{ch04_karate}
+\inc{ch05_estimation}
+\inc{ch06_covariates}
+\inc{ch07_twomode}
+\inc{ch08_postest}
+\inc{ch09_plots}
+\inc{ch10_compare}
+\inc{ch11_validation}
+\inc{ch12_limits}
+\bibliographystyle{plain}
+\begin{thebibliography}{99}
+\bibitem{holland1983} Holland, P.W., Laskey, K.B., Leinhardt, S. (1983). Stochastic blockmodels: first steps. \emph{Social Networks} 5(2), 109--137.
+\bibitem{nowicki2001} Nowicki, K., Snijders, T.A.B. (2001). Estimation and prediction for stochastic blockstructures. \emph{Journal of the American Statistical Association} 96(455), 1077--1087. \url{https://doi.org/10.1198/016214501753208735}
+\bibitem{daudin2008} Daudin, J.-J., Picard, F., Robin, S. (2008). A mixture model for random graphs. \emph{Statistics and Computing} 18(2), 173--183. \url{https://doi.org/10.1007/s11222-007-9046-7}
+\bibitem{govaert2003} Govaert, G., Nadif, M. (2003). Clustering with block mixture models. \emph{Pattern Recognition} 36(2), 463--473.
+\bibitem{karrer2011} Karrer, B., Newman, M.E.J. (2011). Stochastic blockmodels and community structure in networks. \emph{Physical Review E} 83(1), 016107. \url{https://doi.org/10.1103/PhysRevE.83.016107}
+\bibitem{biernacki2000} Biernacki, C., Celeux, G., Govaert, G. (2000). Assessing a mixture model for clustering with the integrated completed likelihood. \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence} 22(7), 719--725.
+\bibitem{come2021} C\^ome, E., Jouvin, N., Latouche, P., Bouveyron, C. (2021). Hierarchical clustering with discrete latent variable models and the integrated classification likelihood. \emph{Advances in Data Analysis and Classification} 15, 957--986. \url{https://doi.org/10.1007/s11634-021-00440-z}
+\bibitem{leger2016} Leger, J.-B. (2016). Blockmodels: a R-package for estimating in latent block model and stochastic block model, with various probability functions, with or without covariates. arXiv:1602.07587. \url{https://doi.org/10.48550/arXiv.1602.07587}
+\bibitem{chiquet2026} Chiquet, J., Donnet, S., Barbillon, P., Lacoste, L. (2026). \emph{sbm: Stochastic Blockmodels.} R package version 1.0.0. \url{https://CRAN.R-project.org/package=sbm}
+\bibitem{greedpkg} C\^ome, E., Jouvin, N. \emph{greed: Clustering and Model Selection with the Integrated Classification Likelihood.} R package version 0.6.2. \url{https://CRAN.R-project.org/package=greed}
+\bibitem{zachary1977} Zachary, W.W. (1977). An information flow model for conflict and fission in small groups. \emph{Journal of Anthropological Research} 33(4), 452--473.
+\bibitem{lazega2001} Lazega, E. (2001). \emph{The Collegial Phenomenon: The Social Mechanisms of Cooperation Among Peers in a Corporate Law Partnership}. Oxford: Oxford University Press.
+\bibitem{davis1941} Davis, A., Gardner, B.B., Gardner, M.R. (1941). \emph{Deep South: A Social Anthropological Study of Caste and Class}. Chicago: University of Chicago Press.
+\end{thebibliography}
+\end{document}

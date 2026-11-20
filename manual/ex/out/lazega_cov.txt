@@ -1,0 +1,64 @@
+. nwsbm lazega_fr, maxblocks(4) seed(20261120) same(office practice gender) absdiff(senior
+> ity) generate(b1) replace
+
+Stochastic block model (bernoulli, directed)               Actors    =        71
+Network: lazega_fr                                         Blocks    =         2
+                                                           ICL       =  -1646.99
+                                                           Lower bound J=  -1595.65
+
+--------------------------------------------------------------
+      Blocks |         ICL           J          PL  parameters
+-------------+------------------------------------------------
+          1  |    -1651.65    -1630.38    -1630.38           5
+          2* |    -1646.99    -1595.65    -1610.81           8
+          3  |    -1664.83    -1587.58    -1605.25          13
+          4  |    -1684.69    -1580.39    -1593.18          20
+--------------------------------------------------------------
+* selected by the largest ICL
+
+Block sizes:
+
+    b1  b2
+r1  45  26
+Block proportions:
+
+        b1      b2
+r1  0.6256  0.3744
+Block connectivity, tie probability (all covariates 0), from the row block to the column b
+> lock:
+
+        b1      b2
+b1  0.0194  0.0217
+b2  0.0511  0.0664
+
+Covariate coefficients (logit scale):
+-----------------------------------------------------------------------------
+             |       Coef.   Std. err.        z     P>|z|[95% conf. interval]
+-------------+---------------------------------------------------------------
+abs_senior~y |    -0.01421     0.00299    -4.75     0.000  -0.02008  -0.00835
+ same_office |     1.34275     0.10608    12.66     0.000   1.13484   1.55067
+same_pract~e |     1.12811     0.10118    11.15     0.000   0.92981   1.32641
+ same_gender |     0.25040     0.09864     2.54     0.011   0.05707   0.44373
+-----------------------------------------------------------------------------
+Standard errors are conditional on the estimated block memberships (they do not reflect
+the uncertainty about the blocks).
+
+. matrix list e(beta)
+
+e(beta)[1,4]
+      abs_senior~y   same_office  same_pract~e   same_gender
+beta    -.01421224     1.3427543     1.1281074     .25039538
+
+. matrix list e(se_beta)
+
+e(se_beta)[1,4]
+      abs_senior~y   same_office  same_pract~e   same_gender
+beta     .00299199     .10607885     .10117618     .09863951
+
+. display "z of same_office: " %6.2f el(e(beta), 1, colnumb(e(beta), "same_office")) / el(
+> e(se_beta), 1, colnumb(e(beta), "same_office"))
+z of same_office:  12.66
+
+. display "odds ratio of same_office: " %6.2f exp(el(e(beta), 1, colnumb(e(beta), "same_of
+> fice")))
+odds ratio of same_office:   3.83

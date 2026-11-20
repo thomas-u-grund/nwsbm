@@ -1,0 +1,13 @@
+\chapter{Limits}\label{ch:limits}
+
+\begin{itemize}
+\item \textbf{Models not available.} Multiplex and dynamic networks, zero-inflated models, covariates together with degree correction, \opt{blockvar} or \opt{icl(exact)}, and \opt{icl(exact)} for the Poisson (without degree correction), Gaussian and covariate models and for networks with missing ties. \opt{greedy} needs \opt{icl(exact)}.
+\item \textbf{Standard errors.} The standard errors of the covariate coefficients are conditional on the estimated memberships and do not reflect the uncertainty about the blocks.
+\item \textbf{Number of blocks.} At most 100 blocks and at most the number of actors of the mode; at least three actors. The ICL is a criterion, not a test: with a flat ICL curve several numbers of blocks are plausible, and the selected number can lie at the end of the fitted range.
+\item \textbf{Size without covariates.} The cost of an iteration grows with the number of ties and blocks; every number of blocks is started many times. Reduce \opt{restarts()}, use \opt{fast}, or fit a small range for large networks. The defaults of \opt{restarts()} decrease with the size of the network. The computing times in chapter~\ref{ch:est} are from one computer and one run.
+\item \textbf{Size with covariates.} Dense matrices are held: about $8(3+p+3T)n^2$ bytes. A note appears above one million cells; more than nine million cells (about 3000 actors) are refused. The Bernoulli model with covariates costs $O(n^2Q^2)$ per sweep and is slow: in the help file, on one thread, 100 actors with \opt{maxblocks(5)} take about 2 seconds and 200 actors about 6 seconds on a recent laptop.
+\item \textbf{Memberships.} The membership probabilities are saved with \opt{generate()}, not in a Stata matrix.
+\item \textbf{Local optima.} The variational EM finds a local optimum; the many starts reduce but do not remove the risk. Run with several seeds for important results and compare the ICL.
+\item \textbf{No fallback.} All computation runs in the plugin; without it the command stops.
+\item \textbf{Platforms.} The runs of the test suite recorded for this series were made on macOS with Stata 17 (the record of version 0.4.0 adds Stata 18). The plugins for Linux and Windows are built by a workflow; runs on those systems are not part of the checks reported here.
+\end{itemize}

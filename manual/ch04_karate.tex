@@ -1,0 +1,23 @@
+\chapter{A first example: the karate club}\label{ch:karate}
+
+\section{The data}
+Zachary's karate club~\cite{zachary1977} has 34 members and 78 friendship ties (undirected). The club split in two after a conflict; the variable \texttt{group} records which side a member joined. The network is loaded from the website; it is called \texttt{zachary\_bin}.
+\showlog{karate_data}
+
+\section{Fitting one to five blocks}
+\texttt{maxblocks(5)} fits every number of blocks from one to five and selects by the ICL; \texttt{generate(block)} stores the most probable block of every actor in the variable \texttt{block} (and the membership probabilities in \texttt{block\_p1}, \texttt{block\_p2}, \dots).
+\showlog{karate_fit}
+The header gives the model, the number of actors, the selected number of blocks and its ICL and lower bound $J$. The table lists, for every number of blocks, the ICL, the lower bound $J$, the expected complete-data log likelihood PL and the number of parameters; the selected row is starred. $J$ and PL rise with every additional block, as every fit does, which is why a penalized criterion is needed; the ICL peaks at two blocks ($-206.06$) and falls for three to five. Below the table are the block sizes, the block proportions and the connectivity matrix $\pi$: a block of 29 actors that are rarely tied to each other (tie probability 0.05 inside the block) and a small block of 5 actors that are tied to each other (0.49) and to the large block (0.37). That is a core and a periphery, a statement about the roles of the actors in the pattern of ties. The seed fixes the random starts, so the listing can be reproduced.
+
+\section{The model selection table and the stored results}
+\texttt{estat icl} lists the table again with the entropy $H$ of the memberships added; \texttt{estat blocks} lists size, proportion and within-block connectivity of the blocks. The selected number of blocks, the criterion and the matrices are stored in \texttt{e()}.
+\showlog{karate_estat}
+The matrix \texttt{e(pi)} is symmetric for an undirected network and only its lower triangle is printed in the fit output.
+
+\section{Blocks are not factions}
+The cross-tabulation of the blocks with the two factions shows that the blocks say nothing about which side a member took: a block model does not look for groups with many ties inside. Forcing three blocks with \texttt{blocks(3)} splits the large block into two parts; the ICL of that fit, $-216.63$, is lower than for two blocks, so the criterion does not support the third block.
+\showlog{karate_cross}
+
+\section{Replay and memberships}
+Typing \texttt{nwsbm} without a network repeats the output of the last fit and, with \texttt{generate()}, saves the memberships of that fit; this also works after a fit with \texttt{nodisplay}. The membership probabilities are not kept in a Stata matrix (a matrix holds at most 800 rows in Stata BE); use \texttt{generate()}. \texttt{nwsbm version} prints the version.
+\showlog{karate_replay}

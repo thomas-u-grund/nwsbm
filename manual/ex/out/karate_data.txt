@@ -1,0 +1,17 @@
+. nwwebuse zachary, nwclear
+
+. nwsummarize zachary_bin
+--------------------------------------------------
+   Network name:  zachary_bin
+   Network id:  1
+   Directed: false
+   Valued: false
+   Two-mode: false
+   Nodes: 34
+   Selfloop: false
+   Edges: 78
+   Minimum value:  0
+   Maximum value:  1
+   Density:  .139
+   Mean degree:  4.59
+   Temporal: false

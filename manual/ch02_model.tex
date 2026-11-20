@@ -1,0 +1,56 @@
+\chapter{The models}\label{ch:model}
+
+This chapter states the models and the estimator exactly but briefly. The definitions are those of the R packages \blockmodels{} and \sbmR{}~\cite{leger2016,chiquet2026}, except where a deviation is stated in section~\ref{sec:dev}.
+
+\section{The stochastic block model}
+A one-mode network has $n$ actors. Every actor $i$ has a latent block $Z_i\in\{1,\dots,Q\}$, drawn independently with probabilities $\alpha_1,\dots,\alpha_Q$ (the block proportions). Given the blocks, the ties are independent, and the tie $y_{ij}$ from $i$ to $j$ has a distribution that depends only on $(Z_i,Z_j)$ through a block parameter $\pi_{Z_iZ_j}$:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\opt{model()} & distribution of $y_{ij}$ given $Z_i=q$, $Z_j=l$ & $\pi_{ql}$ is\\
+\midrule
+\opt{bernoulli} & Bernoulli, $y_{ij}\in\{0,1\}$ & tie probability\\
+\opt{poisson} & Poisson, $y_{ij}\in\{0,1,2,\dots\}$ & rate (expected tie value)\\
+\opt{gaussian} & normal, $y_{ij}\in\mathbb{R}$ & mean; variance $\sigma^2$ common to all pairs\\
+\bottomrule
+\end{tabular}
+\end{center}
+For an undirected network $y_{ij}=y_{ji}$, $\pi$ is symmetric, and only the pairs $i<j$ enter; for a directed network $\pi$ is a full $Q\times Q$ matrix and all ordered pairs enter. Self-loops are ignored. A tie with a missing value is left out of the likelihood and of the counts. Zero ties of a valued network are observed zeros.
+
+With \opt{blockvar} the Gaussian model has a variance $\sigma^2_{ql}$ for every pair of blocks; \opt{sigma2(\#)} fixes the common variance at a given value instead of estimating it. Variances are bounded below by 0.001 times the variance of all ties, which keeps a block pair with very few ties from producing an infinite likelihood.
+
+\section{The degree-corrected model}
+With \opt{degreecorrected} (and \opt{model(poisson)}) the Poisson rate of a pair is the product of a degree parameter of each actor and a rate that depends on the two blocks (Karrer and Newman~\cite{karrer2011}), so that actors with very different degrees can share a block; without the correction a network with strongly varying degrees is split into blocks by degree. The degree parameters are profiled out: they are proportional to the observed degrees. A directed network has an out-degree and an in-degree parameter per actor.
+
+\section{The latent block model for two-mode networks}
+A two-mode network has $n_1$ actors of mode 1 and $n_2$ actors of mode 2 and a rectangular matrix of ties between the two sets. The latent block model (Govaert and Nadif~\cite{govaert2003}) gives each mode its own blocks, $Q_1$ for mode 1 and $Q_2$ for mode 2, with proportions $\alpha$ and $\alpha^{(2)}$; the distribution of the tie between actor $i$ of mode 1 and actor $j$ of mode 2 depends on $(Z_i,Z^{(2)}_j)$ through a $Q_1\times Q_2$ matrix $\pi$. Bernoulli, Poisson and Gaussian edges and the degree-corrected Poisson model are available. In the nwcommands convention the columns of the wide matrix of a two-mode network are mode~1 (see section~\ref{sec:twodata}).
+
+\section{Estimation: variational EM}
+The likelihood of the observed network is a sum over all $Q^n$ assignments of the actors to blocks and cannot be maximized directly. As in \blockmodels{} and \sbmR{}, \nwsbm{} maximizes a lower bound $J$ by variational EM with a mean-field posterior: every actor $i$ has a vector $\tau_i$ of membership probabilities, and the posterior of the assignment is the product of them. The E step updates the $\tau_i$ by a fixed-point iteration (at most 10 sweeps); the memberships are kept in $[0.1/n,\,1-0.1/n]$ and renormalized, as in \blockmodels{}. The M step has closed forms for the block proportions and the block parameters. The iteration stops when $J$ improves by less than $10^{-5}$ or after 1000 iterations. With
+\[ \mathrm{PL}=E_\tau\log p(y,Z;\theta),\qquad H=-\sum_{i,q}\tau_{iq}\log\tau_{iq},\qquad J=\mathrm{PL}+H, \]
+the quantities PL, $H$ and $J$ are reported for every fit. For an undirected network the objective is halved, as in \blockmodels{}.
+
+\section{The integrated classification likelihood}\label{sec:icl}
+The ICL of \blockmodels{} and \sbmR{}, which \nwsbm{} uses by default, is
+\[ \mathrm{ICL}=\mathrm{PL}-\tfrac12\Big[P\log N+(Q-1)\log n\Big] \]
+for a one-mode network and
+\[ \mathrm{ICL}=\mathrm{PL}-\tfrac12\Big[P\log N+(Q_1-1)\log n_1+(Q_2-1)\log n_2\Big] \]
+for a two-mode network. Here PL is the expected complete-data log likelihood under the fitted membership probabilities; $P$ is the number of parameters of the edge model ($Q^2$ for a directed network, $Q(Q+1)/2$ for an undirected one, $Q_1Q_2$ for a two-mode network, plus one for the estimated variance of the Gaussian model, plus the number of covariate coefficients, and twice the number of block parameters with \opt{blockvar}); $N$ is the number of observed pairs (ordered pairs when directed, unordered pairs when undirected, cells when two-mode), and $n$ the number of actors of the mode. The entropy $H$ of the memberships is not added. Larger is better. The criterion rewards fit through PL and penalizes the number of parameters; since PL rises with every additional block, a penalized criterion is needed to choose the number of blocks.
+
+With \opt{icl(exact)} the ICL is replaced by the exact ICL with conjugate priors of \greed{}~\cite{come2021}: a Dirichlet(1) prior for the block proportions, Beta(1,1) priors for the tie probabilities of the Bernoulli model, and the priors of \greed{} for the degree-corrected Poisson model. It is evaluated at the most probable partition of every fitted number of blocks. For the degree-corrected two-mode model the value is that of \greed{}'s latent block model, which leaves the terms out that do not depend on the partition; values of different networks, and values of the one-mode and the two-mode model, are therefore not comparable with each other.
+
+\section{Searching over the number of blocks and over partitions}
+Every number of blocks $Q$ in the requested range is fitted. Each $Q$ is started from (i) a spectral clustering of the residual of the one-block model, (ii) splits of the best solution with one block fewer, (iii) merges of the best solution with one block more, and (iv) \opt{restarts()} random starts (default 10 for up to 500 actors, 4 up to 1500, 2 above). The fit with the largest ICL is kept. The starts of one $Q$ are evaluated by independent threads; every start is deterministic given \opt{seed()}, so the result is the same for any number of threads. With \opt{greedy} (and \opt{icl(exact)}) the partitions are improved further by node swaps and merges on the exact ICL, as in the hybrid search of \greed{}; the memberships are then hard.
+
+\section{Covariates}
+With dyadic covariates $x_{ij1},\dots,x_{ijp}$ the link function of the mean (logit for the Bernoulli, log for the Poisson, identity for the Gaussian model) equals a block parameter plus the sum of the coefficients times the covariates. The coefficients are common to all blocks and count in the ICL. Their standard errors are the square roots of the diagonal of the inverse information matrix of the coefficients with the block parameters profiled out, evaluated at the estimated memberships; they are therefore conditional on the memberships and do not reflect the uncertainty about the blocks. The R packages report no standard errors.
+
+\section{Differences from the R packages}\label{sec:dev}
+The following differences from the R packages are deliberate and documented.
+\begin{itemize}
+\item \textbf{Search.} \blockmodels{} explores the numbers of blocks with a stopping rule (the exploration factor); \nwsbm{} fits every $Q$ in the requested range. The spectral embedding is computed from the residual matrix of the one-block model by subspace iteration (a dense eigendecomposition is avoided), and the forward and backward passes are fixed. Away from the best number of blocks the two programs can end in different local optima, either one being slightly better.
+\item \textbf{Missing ties in covariate models.} The covariate models of \blockmodels{} for Bernoulli and Poisson edges treat missing ties as zeros; \nwsbm{} leaves them out, as in the models without covariates.
+\item \textbf{Bernoulli covariate model.} \sbmR{} uses an approximate estimator by default (\texttt{fast = TRUE}); \nwsbm{} matches the exact one. For two-mode Bernoulli models with covariates \blockmodels{} reports a PL above the maximal log likelihood; \nwsbm{} reports the true value.
+\item \textbf{Extensions.} Standard errors of the covariate coefficients, \opt{sigma2()} (fixed Gaussian variance), \opt{blockvar} (block-specific variances), \opt{orderblocks} and \opt{greedy} on the exact ICL for the Bernoulli and the degree-corrected models are not in \blockmodels{} or \sbmR{}. The degree-corrected models and the exact ICL come from \greed{}, whose ICL is a different criterion from that of \blockmodels{} (section~\ref{sec:icl}); \nwsbm{} keeps both, the criterion of \blockmodels{} in \texttt{e(ICLbm)} when \opt{icl(exact)} is used.
+\item \textbf{Mode order.} \nwsbm{} puts the columns of a wide two-mode matrix into mode~1 (nwcommands convention); R's \texttt{estimateBipartiteSBM} has the rows first.
+\end{itemize}

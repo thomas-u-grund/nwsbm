@@ -1,0 +1,32 @@
+. capture noisily nwsbm zachary_bin, model(gaussian) degreecorrected
+degreecorrected needs model(poisson)
+invalid syntax
+
+. capture noisily nwsbm zachary_bin, greedy
+greedy (the greedy search on the exact ICL) needs icl(exact)
+invalid syntax
+
+. capture noisily nwsbm zachary_bin, blocks(2) maxblocks(4)
+blocks() and maxblocks() cannot be combined
+invalid syntax
+
+. capture noisily nwsbm zachary_bin, blocks(2 2)
+Network zachary_bin not found
+
+. capture noisily nwsbm zachary_bin, icl(exact) model(poisson)
+icl(exact) is available for model(bernoulli) (one-mode networks) and for model(poisson)
+with degreecorrected (the models of R greed).
+invalid syntax
+
+. capture noisily nwsbm w, blocks(2)
+model(bernoulli) needs ties that are 0 or 1; w has other values. Use model(poisson)
+(counts) or model(gaussian), or dichotomise it with nwreplace.
+invalid syntax
+
+. capture noisily nwsbm w, model(poisson) blocks(2) covariates(lazega_fr) degreecorrected
+degreecorrected cannot be combined with covariates
+invalid syntax
+
+. capture noisily nwsbm w, model(poisson) blocks(2) icl(exact) greedy fast
+greedy and fast cannot be combined
+invalid syntax

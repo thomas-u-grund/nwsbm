@@ -118,6 +118,13 @@ The membership probabilities are not stored in a Stata matrix (a matrix holds at
 {pstd}
 Multiplex and dynamic networks, zero-inflated models and covariates with the degree-corrected model or with {opt blockvar} are not available.
 
+{title:Manual}
+
+{pstd}
+A user manual (PDF in the {cmd:manual} folder of the package source) is archived at Zenodo, {browse "https://doi.org/10.5281/zenodo.24398296":doi:10.5281/zenodo.24398296}, all versions. Please cite it by that address and report the package version printed by {cmd:nwsbm version}.
+{p_end}
+
+
 {title:References}
 
 {phang}

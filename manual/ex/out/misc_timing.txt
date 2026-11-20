@@ -1,0 +1,27 @@
+. foreach n in 200 500 {
+  2.         nwrandom `n', prob(0.05) name(g`n') undirected
+  3.         timer clear 1
+  4.         timer on 1
+  5.         quietly nwsbm g`n', maxblocks(6) seed(1) threads(1)
+  6.         timer off 1
+  7.         quietly timer list 1
+  8.         display "n = `n', maxblocks(6), threads(1):   " %6.2f r(t1) " seconds"
+  9.         timer clear 2
+ 10.         timer on 2
+ 11.         quietly nwsbm g`n', maxblocks(6) seed(1) threads(1) fast
+ 12.         timer off 2
+ 13.         quietly timer list 2
+ 14.         display "n = `n', maxblocks(6), threads(1), fast: " %6.2f r(t2) " seconds"
+ 15.         timer clear 3
+ 16.         timer on 3
+ 17.         quietly nwsbm g`n', maxblocks(6) seed(1)
+ 18.         timer off 3
+ 19.         quietly timer list 3
+ 20.         display "n = `n', maxblocks(6), all cores:    " %6.2f r(t3) " seconds"
+ 21. }
+n = 200, maxblocks(6), threads(1):     0.69 seconds
+n = 200, maxblocks(6), threads(1), fast:   0.23 seconds
+n = 200, maxblocks(6), all cores:      0.31 seconds
+n = 500, maxblocks(6), threads(1):     2.53 seconds
+n = 500, maxblocks(6), threads(1), fast:   0.30 seconds
+n = 500, maxblocks(6), all cores:      0.99 seconds

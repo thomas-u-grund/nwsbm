@@ -1,0 +1,84 @@
+. nwgenerate ties3 = lazega_adv + lazega_cow + lazega_fr
+
+. nwsummarize ties3
+--------------------------------------------------
+   Network name:  ties3
+   Network id:  4
+   Directed: true
+   Valued: true
+   Two-mode: false
+   Nodes: 71
+   Selfloop: false
+   Arcs: 1574
+   Minimum value:  0
+   Maximum value:  3
+   Density:  .317
+   Mean outdegree:  22.17
+   Temporal: false
+
+. nwsbm ties3, model(poisson) maxblocks(5) seed(20261120) nodisplay
+
+. estat icl
+
+Model selection by the integrated classification likelihood (ICL), poisson model
+----------------------------------------------------------------------------
+      Blocks |          ICL           J          PL           H  parameters
+-------------+--------------------------------------------------------------
+          1  |     -5061.08    -5056.83    -5056.83        0.00           1
+          2  |     -4832.91    -4812.76    -4813.75        0.99           4
+          3  |     -4679.40    -4634.81    -4636.84        2.02           9
+          4  |     -4607.31    -4530.39    -4532.83        2.43          16
+          5* |     -4581.10    -4462.61    -4466.19        3.58          25
+----------------------------------------------------------------------------
+* selected by the largest ICL (ties within 1e-9: fewest blocks)
+
+. nwsbm ties3, model(poisson) degreecorrected maxblocks(5) seed(20261120) nodisplay
+
+. estat icl
+
+Model selection by the integrated classification likelihood (ICL), poisson model
+----------------------------------------------------------------------------
+      Blocks |          ICL           J          PL           H  parameters
+-------------+--------------------------------------------------------------
+          1  |     -4556.02    -4551.76    -4551.76        0.00           1
+          2  |     -4332.79    -4312.74    -4313.64        0.90           4
+          3  |     -4240.74    -4194.99    -4198.18        3.19           9
+          4  |     -4211.90    -4133.38    -4137.41        4.03          16
+          5* |     -4189.85    -4071.10    -4074.93        3.83          25
+----------------------------------------------------------------------------
+* selected by the largest ICL (ties within 1e-9: fewest blocks)
+
+. nwsbm ties3, model(gaussian) maxblocks(5) seed(20261120) generate(g1) replace nodisplay
+
+. display "one variance: ICL " %9.2f e(ICL) ", " e(Q) " blocks, variance " %6.3f e(sigma2)
+one variance: ICL  -5992.99, 5 blocks, variance  0.596
+
+. nwsbm ties3, model(gaussian) blockvar maxblocks(5) seed(20261120) orderblocks generate(g
+> 2) replace nodisplay
+
+. matrix list e(sigma2_block)
+
+e(sigma2_block)[5,5]
+           b1         b2         b3         b4         b5
+b1   .7185553  .00830269  .89686485  .26799088   .5016641
+b2  .01697511  .53547141  .30990159  .74771478  .88108128
+b3  .95949349  .21183141  .92731163  .65982045  .91727259
+b4  .17429797  .63137542  .45787398  1.0332808  .87355493
+b5  1.0275909  1.0452712  1.0440325  1.2296223  1.1363793
+
+. display "pooled residual variance: " %6.3f e(sigma2) ", Q = " e(Q) ", ICL " %9.2f e(ICL)
+pooled residual variance:  0.650, Q = 5, ICL  -5253.88
+
+. tabulate g1 g2
+
+     nwsbm |
+     block |                   nwsbm block (MAP)
+     (MAP) |         1          2          3          4          5 |     Total
+-----------+-------------------------------------------------------+----------
+         1 |         0          0          5          0          2 |         7
+         2 |        16          0          8          0          0 |        24
+         3 |         0          0          0          3          6 |         9
+         4 |         0          8          0          6          4 |        18
+         5 |         0          8          2          3          0 |        13
+-----------+-------------------------------------------------------+----------
+     Total |        16         16         15         12         12 |        71
