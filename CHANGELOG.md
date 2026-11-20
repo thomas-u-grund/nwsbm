@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.1] - unreleased
+- `estat icl` stars the cell the fit selected (`e(Q)`, `e(Q2)`). It used to find the largest ICL itself through a rounded macro value, so with exactly tied cells (common with `icl(exact)`, where a fit with empty blocks has the partition of a fit with fewer blocks; e.g. the degree-corrected model on the Southern women with `maxblocks(4 4)`) it could star a different cell (4 x 1) than the fit's own table (1 x 1). The tie rule is now one documented rule: cells within 1e-9 of the largest ICL tie and the first row of the table wins (smaller Q, for two-mode networks the smaller Q1 and then the smaller Q2). Fit results are unchanged.
+- Test `cscripts/test_nwsbm_icltie.do` (data `dev/ref/davis_matrix.csv`).
+
 ## [0.4.0] - 2026-11-19
 - Degree-corrected two-mode model: `degreecorrected` with `model(poisson)` now also fits two-mode networks (the degree-corrected latent block model, R `greed` `DcLbm`); `icl(exact)` gives the exact ICL of `greed` for it (the terms that do not depend on the partition are left out, as in `greed`).
 - Standard errors of the covariate coefficients: `e(se_beta)` and `e(V_beta)` (inverse information of the coefficients with the block parameters profiled out, conditional on the estimated memberships); the coefficient table shows standard errors, z, p-values and confidence intervals. The R packages give none.

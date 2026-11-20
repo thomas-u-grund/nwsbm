@@ -33,13 +33,11 @@ program _nwsbm_estat_icl, rclass
 	di as text "{hline 13}{c TT}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"
 	di as text %12s cond(`two', "Blocks 1 x 2", "Blocks") " {c |}" %13s "ICL" %12s "J" %12s "PL" %12s "H" %12s "parameters"
 	di as text "{hline 13}{c +}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"
-	local best = .
+	* the starred row is the fit's own selection (e(Q), e(Q2)); the fit takes the first row of the table whose ICL is within 1e-9 of the largest,
+	* i.e. on ties the smallest number of blocks (one-mode) or the smallest Q1 and then the smallest Q2 (two-mode)
 	local bi = .
 	forvalues r = 1/`=rowsof(`T')' {
-		if `T'[`r', `c0'] > `best' | `best' >= . {
-			local best = `T'[`r', `c0']
-			local bi = `r'
-		}
+		if `T'[`r', 1] == e(Q) & (`two' == 0 | `T'[`r', 2] == e(Q2)) local bi = `r'
 	}
 	forvalues r = 1/`=rowsof(`T')' {
 		local mark = cond(`r' == `bi', "*", " ")
@@ -47,7 +45,7 @@ program _nwsbm_estat_icl, rclass
 		di as text %11s "`lab'" "`mark' {c |}" as result %13.2f `T'[`r', `c0'] %12.2f `T'[`r', `c0' + 1] %12.2f `T'[`r', `c0' + 2] %12.2f `T'[`r', `c0' + 3] %12.0f `T'[`r', `c0' + 4]
 	}
 	di as text "{hline 13}{c BT}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"
-	di as text "* largest ICL"
+	di as text "* selected by the largest ICL (ties within 1e-9: fewest blocks)"
 	return matrix table = `T'
 end
 
