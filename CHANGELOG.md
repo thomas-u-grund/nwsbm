@@ -1,7 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.1] - 2026-11-20
 - The dialog test `tools/dlg_assembly_test.py` checks the command that `nwsbmplot.dlg` builds (`type()`, `name()`, `saving()`, `export()`).
+
+Tested on macOS with Stata 17 BE: dialog assembly test, plot tests and error-path tests. Other Stata versions and operating systems: not tested yet.
 
 ## [1.0.0] - 2026-11-20
 - Fixes: the default titles of `nwsbmplot` types matrix, expected, icl and blocks were drawn with literal quotation marks; a title given with its own options, `title("x", size(large))`, is black too unless it carries `color()`. Test in `cscripts/test_nwsbm_plots.do` (the default title gives the same picture as the same title given explicitly).
