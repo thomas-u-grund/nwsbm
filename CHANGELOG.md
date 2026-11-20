@@ -1,6 +1,7 @@
 # Changelog
 
 ## [1.0.0] - 2026-11-20
+- Fixes: the default titles of `nwsbmplot` types matrix, expected, icl and blocks were drawn with literal quotation marks; a title given with its own options, `title("x", size(large))`, is black too unless it carries `color()`. Test in `cscripts/test_nwsbm_plots.do` (the default title gives the same picture as the same title given explicitly).
 - Fixes: `nwsbmplot, export(file, options)` failed with "invalid replace"; the options are now passed to `graph export` (also with `name()`).
 - `nwsbmplot`: titles, subtitles, axis titles and legend titles are black by default (a twoway option still overrides); `title("")` (or a blank title) draws no title, in every plot type; new options `blocklabels(list)` (names of the blocks on the axes, in the membership legend and on the block-graph nodes), `actorlabels(varname)` (actor names on the axes of matrix and expected and under the membership bars, up to 40 actors), `linecolor()` (block lines of matrix and expected, gray `gs8` by default instead of red), `nolegend` (icl, membership); the matrix and expected plots have the default axis titles "block of sender" / "block of receiver" ("block of mode 1" / "block of mode 2"). Tests in `cscripts/test_nwsbm_plots.do`. The Mata library has the new helper `SbmActLab` (rebuilt with Stata 17).
 - Fixes: `nwsbmplot, type(icl)`: the legend is drawn with a wider margin (two rows below the plot, or at the right for two-mode fits) so that no label runs over the frame of the legend box (checked in `test_nwsbm_plots`).

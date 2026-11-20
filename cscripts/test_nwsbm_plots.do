@@ -282,5 +282,31 @@ if _rc {
 }
 else di as result "PASS export() with options and name()"
 capture graph drop _all
+* default titles carry no literal quote marks: the default picture equals the one with the same title given explicitly
+quietly nwsbm gu, blocks(2) seed(3) nodisplay
+foreach t in matrix expected blocks {
+	local what = cond("`t'" == "matrix", "Blocked adjacency matrix, 2 blocks", cond("`t'" == "expected", "Expected ties, 2 blocks", "Block graph"))
+	nwsbmplot, type(`t') export("`tmp'/dt_a.png")
+	quietly checksum "`tmp'/dt_a.png"
+	local ca = r(checksum)
+	nwsbmplot, type(`t') title("`what'") export("`tmp'/dt_b.png")
+	quietly checksum "`tmp'/dt_b.png"
+	if "`ca'" != "`r(checksum)'" {
+		di as error "FAIL default title of type(`t') differs from the explicit title"
+		global nwfail = $nwfail + 1
+	}
+	else di as result "PASS default title type(`t')"
+}
+quietly nwsbm gu, maxblocks(4) seed(3) nodisplay
+nwsbmplot, type(icl) export("`tmp'/dt_a.png")
+quietly checksum "`tmp'/dt_a.png"
+local ca = r(checksum)
+nwsbmplot, type(icl) title("ICL by number of blocks (`=e(Q)' selected)") export("`tmp'/dt_b.png")
+quietly checksum "`tmp'/dt_b.png"
+if "`ca'" != "`r(checksum)'" {
+	di as error "FAIL default title of type(icl) differs from the explicit title"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS default title type(icl)"
 if $nwfail di as error "FAILED $nwfail"
 else di as result "ALL PASSED"

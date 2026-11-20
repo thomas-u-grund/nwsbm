@@ -143,8 +143,8 @@ program nwsbmplot
 			local ttl "`crit' by number of blocks (`e(Q)' selected)"
 			local legopt `"legend(order(`ord') size(small) rows(2) position(6) region(margin(l+1 r+6 t+1 b+1)))"'
 		}
-		if `"`title'"' == "" local title `""`ttl'""'
-		_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+		if `"`title'"' == "" local title `"`ttl'"'
+		_nwsbmplot_tt `=`notitle'' `title'
 		local title `"`r(t)'"'
 		if "`nolegend'" != "" local legopt "legend(off)"
 		local y2 ""
@@ -178,7 +178,7 @@ program nwsbmplot
 			if `two' local sttl `"Mode `md': `q' blocks"'
 			else local sttl `"Posterior membership probabilities, `q' blocks"'
 			if `"`title'"' != "" & !`two' local sttl `"`title'"'
-			_nwsbmplot_tt, t(`"`sttl'"') no(`=(`notitle' & !`two')')
+			_nwsbmplot_tt `=(`notitle' & !`two')' `sttl'
 			local mtt `"`r(t)'"'
 			local gopt "`nmopt' `svopt'"
 			if `two' local gopt `"nodraw name(__nwsbm_mem`md', replace)"'
@@ -190,7 +190,7 @@ program nwsbmplot
 		}
 		if `two' {
 			if `"`title'"' == "" local title `""Posterior membership probabilities""'
-			_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+			_nwsbmplot_tt `=`notitle'' `title'
 			graph combine __nwsbm_mem1 __nwsbm_mem2, rows(1) `r(t)' `nmopt' `svopt'
 			capture graph drop __nwsbm_mem1 __nwsbm_mem2
 		}
@@ -302,12 +302,12 @@ program nwsbmplot
 		if `two' local axt `"xtitle("block of mode 2", color(black)) ytitle("block of mode 1", color(black))"'
 		local what = cond("`type'" == "expected", "Expected ties", "Blocked adjacency matrix")
 		if `"`title'"' == "" {
-			local title `""`what', `e(Q)' blocks""'
-			if `two' local title `""`what', `e(Q1)' x `e(Q2)' blocks""'
+			local title `"`what', `e(Q)' blocks"'
+			if `two' local title `"`what', `e(Q1)' x `e(Q2)' blocks"'
 		}
 		local subopt ""
 		if "`type'" == "expected" local subopt `"subtitle("posterior expected value of the tie, `__vmin' (light) to `__vmax' (dark)", size(small) color(black))"'
-		_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+		_nwsbmplot_tt `=`notitle'' `title'
 		local title `"`r(t)'"'
 		twoway `plots', `xl' `yl' `xlab' `ylab' xscale(range(0.5 `=`nc'+0.5') lstyle(none)) yscale(range(0.5 `=`nr'+0.5') lstyle(none)) ///
 			legend(off) aspectratio(`=`nr'/`nc'') plotregion(margin(zero) lcolor(gs8)) `axt' `title' `subopt' `nmopt' `svopt' `options'
@@ -423,10 +423,10 @@ program nwsbmplot
 				local splots `splots' (scatter __y __x if _n == `k', msymbol(O) msize(*`: word `cl' of `msz'') mcolor(`"`fc'"') mlcolor(gs4) mlabel(__lab) mlabposition(`=cond(`nbl' > 0, 6, 0)') mlabcolor(`=cond(`nbl' > 0, "black", "`lbc'")') mlabsize(small))
 			}
 		}
-		if `"`title'"' == "" local title `""Block graph""'
+		if `"`title'"' == "" local title `"Block graph"'
 		local sub `""node size: block size; line width: connectivity (relative to the largest entry of the connectivity matrix)""'
 		if `two' local sub `""left: blocks of mode 1, right: blocks of mode 2; node size: block size; line width: connectivity""'
-		_nwsbmplot_tt, t(`"`title'"') no(`=`notitle'')
+		_nwsbmplot_tt `=`notitle'' `title'
 		local title `"`r(t)'"'
 		twoway `eplots' `splots', legend(off) xscale(off range(-1.3 1.3)) yscale(off range(-1.3 1.3)) xlabel(none) ylabel(none) ///
 			aspectratio(1) `title' subtitle(`sub', size(small) color(black)) `nmopt' `svopt' `options'
@@ -447,11 +447,17 @@ end
 * title(): black text unless the user's own title() already carries options
 capture program drop _nwsbmplot_tt
 program _nwsbmplot_tt, rclass
-	syntax [, T(string asis) NO(integer 0)]
-	if `no' | `"`t'"' == "" exit
-	if strpos(`"`t'"', `"""') == 0 local t `""`t'""'
-	if strpos(`"`t'"', `"","') | strpos(`"`t'"', `"" ,"') return local t `"title(`t')"'
-	else return local t `"title(`t', color(black))"'
+	gettoken no t : 0
+	mata: st_local("t", strtrim(st_local("t")))
+	if "`no'" == "1" | `"`t'"' == "" exit
+	mata: st_local("hasq", strofreal(strpos(st_local("t"), char(34)) > 0))
+	if !`hasq' local t `""`t'""'
+	if strpos(`"`t'"', "color(") | strpos(`"`t'"', "col(") return local t `"title(`t')"'
+	else {
+		mata: st_local("hasopt", strofreal(strpos(st_local("t"), char(34) + ",") > 0 | strpos(st_local("t"), char(34) + " ,") > 0))
+		if `hasopt' return local t `"title(`t' color(black))"'
+		else return local t `"title(`t', color(black))"'
+	}
 end
 
 * axis and bar labels from the actors' labels (string variable, or numeric with value labels), in the order of the plots
