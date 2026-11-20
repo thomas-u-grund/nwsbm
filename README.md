@@ -1,6 +1,6 @@
 # nwsbm
 
-<!--version-->**Version 1.0.1** (released 20 November 2026)<!--/version-->
+<!--version-->**Version 1.0.2** (released 20 November 2026)<!--/version-->
 
 Stochastic block models for networks in Stata, fitted by variational EM with a native C plugin. Part of the nwcommands family; requires the core package
 `nwcommands` (3.26.0 or later). Free software, GPL-3. Follows the R packages `blockmodels` and `sbm` (objective, ICL, model names).

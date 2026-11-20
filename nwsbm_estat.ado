@@ -1,4 +1,4 @@
-*! version 1.0.1  20nov2026 nwsbm_estat
+*! version 1.0.2  20nov2026 nwsbm_estat
 * Copyright (C) 2026 Thomas U. Grund. Part of nwsbm; GNU GPL-3 (see LICENSE).
 capture program drop nwsbm_estat
 program nwsbm_estat, rclass
@@ -29,7 +29,7 @@ program _nwsbm_estat_icl, rclass
 	local c0 = cond(`two', 3, 2)
 	local ncol = colsof(`T')
 	di
-	di as text "Model selection by the integrated classification likelihood (ICL), `e(model)' model"
+	di as text "Model selection by the integrated classification likelihood, `e(model)' model"
 	di as text "{hline 13}{c TT}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"
 	di as text %12s "Blocks" " {c |}" %13s "ICL" %12s "J" %12s "PL" %12s "H" %12s "parameters"
 	di as text "{hline 13}{c +}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"

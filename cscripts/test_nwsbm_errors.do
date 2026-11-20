@@ -21,6 +21,8 @@ capture nwsbm g, blocks(2 3)
 sbmt_expect `=_rc' 198 "two block numbers (latent block model)"
 capture nwsbm g, blocks(2) maxblocks(4)
 sbmt_expect `=_rc' 198 "blocks() with maxblocks()"
+capture nwsbm g, maxblocks(0)
+sbmt_expect `=_rc' 198 "maxblocks(0)"
 capture nwsbm g, model(poisson) blocks(2)
 sbmt_expect `=_rc' 0 "model(poisson) on a binary network (allowed, as R)"
 capture nwsbm g, model(gaussian) blocks(2)

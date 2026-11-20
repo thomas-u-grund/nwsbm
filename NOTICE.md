@@ -1,6 +1,6 @@
 # NOTICE
 
-<!--version-->**Version 1.0.1** (released 20 November 2026)<!--/version-->
+<!--version-->**Version 1.0.2** (released 20 November 2026)<!--/version-->
 
 nwsbm is Copyright (C) 2026 Thomas U. Grund and is distributed under the GNU General Public License, version 3 (file `LICENSE`).
 

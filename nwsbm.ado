@@ -1,4 +1,4 @@
-*! version 1.0.1  20nov2026 nwsbm
+*! version 1.0.2  20nov2026 nwsbm
 * Copyright (C) 2026 Thomas U. Grund
 * This file is part of nwsbm, a Stata package for stochastic block models. It follows the variational EM and the ICL of the R packages
 * blockmodels and sbm and is written independently.
@@ -25,6 +25,12 @@ program nwsbm, eclass
 	syntax anything(name=netname) [, BLOCKs(numlist integer >=1 max=2) MAXBlocks(numlist integer >=0 max=2) MINBlocks(numlist integer >=1 max=2) ///
 		MODel(string) DEGREEcorrected SIGma2(real -1) SEED(string) RESTarts(integer -999) THReads(integer 0) FAST GREEDY BLOCKVar ICL(string) COVariates(string) ABSDiff(string) SAMe(string) SIGNeddiff(string) ORDERblocks GENerate(string) replace noDISplay]
 	local __nb : word count `blocks'
+	foreach __w of local maxblocks {
+		if `__w' < 1 {
+			di as error "maxblocks() must be a positive integer"
+			error 198
+		}
+	}
 	local __nmx : word count `maxblocks'
 	local __nmn : word count `minblocks'
 	if "`model'" == "" local model "bernoulli"
@@ -384,8 +390,8 @@ program _nwsbm_display
 		_col(60) "Actors" _col(70) "= " as result %9.0g e(N)
 	di as text "Network: " as result "`e(network)'" as text _col(60) "Blocks" _col(70) "= " as result %9.0g `q' cond(`two', " x " + string(e(Q2)), "")
 	di as text _col(60) "ICL" _col(70) "= " as result %9.2f e(ICL)
-	di as text _col(60) "Lower bound J" _col(70) "= " as result %9.2f e(J)
-	if "`e(model)'" == "gaussian" & "`e(blockvar)'" == "yes" di as text _col(60) "Pooled variance" _col(70) "= " as result %9.4g e(sigma2)
+	di as text _col(56) "Lower bound J" _col(70) "= " as result %9.2f e(J)
+	if "`e(model)'" == "gaussian" & "`e(blockvar)'" == "yes" di as text _col(54) "Pooled variance" _col(70) "= " as result %9.4g e(sigma2)
 	else if "`e(model)'" == "gaussian" di as text _col(60) "Variance" _col(70) "= " as result %9.4g e(sigma2)
 	tempname T
 	matrix `T' = e(ICLtable)

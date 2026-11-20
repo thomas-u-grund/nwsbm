@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  20nov2026 author: Thomas Grund}{...}
+{* *! version 1.0.2  20nov2026 author: Thomas Grund}{...}
 {title:Title}
 
 {p2colset 9 17 24 2}{...}
@@ -24,7 +24,7 @@
 {synopthdr}
 {synoptline}
 {synopt :{opt block:s(#)}}fit exactly this number of blocks; two numbers, {cmd:blocks(}{it:#1 #2}{cmd:)}, for a two-mode network (blocks of mode 1 and of mode 2){p_end}
-{synopt :{opt maxb:locks(#)}}fit every number of blocks from {opt minblocks()} to this value and select by ICL; default {cmd:min(10, actors)} when {opt blocks()} is not given; two numbers for a two-mode network (all pairs are fitted){p_end}
+{synopt :{opt maxb:locks(#)}}fit every number of blocks from {opt minblocks()} to this value (a positive integer) and select by ICL; default {cmd:min(10, actors)} when {opt blocks()} is not given; two numbers for a two-mode network (all pairs are fitted){p_end}
 {synopt :{opt minb:locks(#)}}smallest number of blocks fitted with {opt maxblocks()}; default {cmd:1}; two numbers for a two-mode network{p_end}
 {synopt :{opt mod:el(name)}}tie model: {cmd:bernoulli} (default; ties 0 or 1), {cmd:poisson} (non-negative integer counts) or {cmd:gaussian} (real values){p_end}
 {synopt :{opt degree:corrected}}degree-corrected block model; with {cmd:model(poisson)}, one-mode and two-mode networks{p_end}
@@ -72,6 +72,9 @@ The ICL of {cmd:blockmodels} is
 for a one-mode network and
 {it:ICL = PL - 1/2 [ P log(N) + (Q1 - 1) log(n1) + (Q2 - 1) log(n2) ]}
 for a two-mode network, where {it:PL} is the expected complete-data log likelihood under the fitted membership probabilities, {it:P} the number of parameters of the edge model (Q*Q for a directed network, Q(Q+1)/2 for an undirected one, Q1*Q2 for a two-mode network, plus one for the estimated variance of the Gaussian model), {it:N} the number of observed pairs (ordered pairs when directed, unordered pairs when undirected, cells when two-mode) and {it:n} the number of actors of the mode. The entropy of the memberships is not added. Larger is better.
+
+{pstd}
+The ICL printed by default is therefore the approximation of {cmd:blockmodels} and {cmd:sbm}: the expected complete-data log likelihood at the variational fit, penalised as for a BIC, with no entropy term and no prior on the parameters. It can prefer a different number of blocks than the exact ICL ({opt icl(exact)}, below); for the Lazega advice network the approximation selects 4 blocks and the exact ICL selects 6. The ICL of a given number of blocks depends slightly on the seed, because the variational fit can end in a slightly different local optimum (for 6 blocks on that network the value differs in the second decimal between seeds); fix {opt seed()} to reproduce a table.
 
 {pstd}
 {opt icl(exact)} replaces it by the exact ICL with conjugate priors (Dirichlet(1) for the block proportions, Beta(1,1) for the tie probabilities of the Bernoulli model, the priors of R {cmd:greed} for the degree-corrected Poisson model), evaluated at the most probable partition of every fitted Q, and selects Q by it. It is available for {cmd:model(bernoulli)} (one-mode networks) and for {cmd:model(poisson)} with {opt degreecorrected} (one-mode and two-mode networks), without missing ties. For the degree-corrected two-mode model the value is that of R {cmd:greed} ({cmd:DcLbm}), which leaves the terms that do not depend on the partition out. The table then holds the exact ICL in the ICL column and the criterion of {cmd:blockmodels} in {cmd:e(ICLbm)}.
@@ -156,4 +159,4 @@ Thomas U. Grund, RWTH Aachen University. nwsbm is part of the nwcommands family 
 {help nwsbmplot}, {help nwset}, {help nwrandom}
 
 {hline}
-{pstd}{it:nwsbm version 1.0.1, 20 November 2026}{p_end}{* nwversion}
+{pstd}{it:nwsbm version 1.0.2, 20 November 2026}{p_end}{* nwversion}
