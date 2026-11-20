@@ -31,7 +31,7 @@ program _nwsbm_estat_icl, rclass
 	di
 	di as text "Model selection by the integrated classification likelihood (ICL), `e(model)' model"
 	di as text "{hline 13}{c TT}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"
-	di as text %12s cond(`two', "Blocks 1 x 2", "Blocks") " {c |}" %13s "ICL" %12s "J" %12s "PL" %12s "H" %12s "parameters"
+	di as text %12s "Blocks" " {c |}" %13s "ICL" %12s "J" %12s "PL" %12s "H" %12s "parameters"
 	di as text "{hline 13}{c +}{hline 14}{hline 12}{hline 12}{hline 12}{hline 12}"
 	* the starred row is the fit's own selection (e(Q), e(Q2)); the fit takes the first row of the table whose ICL is within 1e-9 of the largest,
 	* i.e. on ties the smallest number of blocks (one-mode) or the smallest Q1 and then the smallest Q2 (two-mode)

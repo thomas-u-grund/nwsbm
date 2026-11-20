@@ -127,5 +127,55 @@ if _rc != 301 {
 }
 else di as result "PASS no estimates"
 
+* regressions of 1.0.0: shade draws rectangles; two-mode estat icl header; two-mode rows are mode 1
+quietly nwsbm gu, maxblocks(4) seed(3) nodisplay
+nwsbmplot, type(matrix) export("`tmp'/sh0.png")
+nwsbmplot, type(matrix) shade export("`tmp'/sh1.png")
+quietly checksum "`tmp'/sh0.png"
+local h0 = r(checksum)
+quietly checksum "`tmp'/sh1.png"
+if "`h0'" == "`r(checksum)'" {
+	di as error "FAIL shade has no effect"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS shade"
+* the shaded rectangles: the dark grey fraction of the picture must be large (strips would be tiny); compare file sizes of shade vs unshaded is weak, so test the plot data instead
+preserve
+quietly {
+	clear
+	mata: SbmPlotMatrix(J(150, 150, 0), 0, J(0, 1, .), J(0, 1, .), st_matrix("e(pi)"), 1, 0, 0)
+	summarize __w if __rt == 1, meanonly
+}
+if r(max) <= 1 {
+	di as error "FAIL shade rectangles have unit width"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS shade rectangle widths"
+restore
+quietly nwsbm g2, maxblocks(3 3) model(poisson) seed(3) nodisplay
+tempname lg
+quietly log using "`tmp'/icl2.log", text replace name(icl2)
+estat icl
+quietly log close icl2
+quietly filefilter "`tmp'/icl2.log" "`tmp'/icl2b.log", from("Blocks 1 x 2") to("STALE") replace
+if r(occurrences) > 0 {
+	di as error "FAIL stale header Blocks 1 x 2"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS estat icl header"
+nwsbmplot, type(matrix) name(__gt, replace)
+* mode 1 on the rows: the plot data has as many rows as actors of mode 1
+preserve
+quietly {
+	clear
+	mata: SbmPlotMatrix(J(`=e(N1)', `=e(N2)', 1), 1, (1::`=e(N1)'), (1::`=e(N2)'), st_matrix("e(pi)"), 0, 0, 0)
+}
+if `__nr' != e(N1) | `__nc' != e(N2) {
+	di as error "FAIL two-mode rows are not mode 1"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS two-mode rows are mode 1"
+restore
+
 if $nwfail di as error "FAILED $nwfail"
 else di as result "ALL PASSED"

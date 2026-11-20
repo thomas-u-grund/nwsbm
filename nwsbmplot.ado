@@ -166,9 +166,12 @@ program nwsbmplot
 		local leg ""
 		if "`shade'" != "" {
 			local shc "gs15 gs13 gs11 gs9"
-			forvalues s = 1/4 {
-				local col : word `s' of `shc'
-				local plots `plots' (rbar __yl __yh __xc if __rt == 1 & __sh == `s', barwidth(1) fcolor(`col') lcolor(`col') lwidth(none))
+			quietly count if __rt == 0
+			local nt0 = r(N)
+			* one bar per block rectangle (the widths differ)
+			forvalues i = `=`nt0' + 1'/`=_N' {
+				local col : word `=__sh[`i']' of `shc'
+				local plots `plots' (rbar __yl __yh __xc if _n == `i', barwidth(`=__w[`i']') fcolor(`col') lcolor(`col') lwidth(none))
 			}
 		}
 		if "`type'" == "expected" {

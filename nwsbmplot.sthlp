@@ -31,7 +31,7 @@
 {title:Description}
 
 {pstd}
-{cmd:nwsbmplot} uses the last {helpb nwsbm} fit (the network and the membership probabilities must still be in memory). The {cmd:matrix} plot draws every tie of the network as a point in the adjacency matrix, with the actors ordered by their most probable block, so that the block structure shows as dense and sparse rectangles; for a valued network the points are darker for larger values. For a two-mode network the rows are the actors of mode 2 and the columns those of mode 1, each ordered by its blocks.
+{cmd:nwsbmplot} uses the last {helpb nwsbm} fit (the network and the membership probabilities must still be in memory). The {cmd:matrix} plot draws every tie of the network as a point in the adjacency matrix, with the actors ordered by their most probable block, so that the block structure shows as dense and sparse rectangles; for a valued network the points are darker for larger values. For a two-mode network the rows are the actors of mode 1 and the columns those of mode 2, each ordered by its blocks.
 
 {pstd}
 The {cmd:expected} plot draws the posterior expected value of every tie, E = T1 {it:pi} T2', where {it:pi} is the connectivity matrix {cmd:e(pi)} and T1, T2 are the membership probabilities of the actors (of the two modes for a two-mode network); the actors are ordered as in the {cmd:matrix} plot and eight grey levels span the range of the values (the range is in the subtitle). It shows the block part of the model: degree parameters of {cmd:degreecorrected} and the covariate terms are not included. One-mode networks: the diagonal is left out. At most 2.5 million cells are drawn.
