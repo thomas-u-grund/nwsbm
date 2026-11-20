@@ -254,5 +254,33 @@ chk __g, opts(type(icl) nolegend) label("icl nolegend")
 chk __g, opts(type(icl) title("")) label("icl title off")
 capture graph drop _all
 
+* two-mode actorlabels on the Davis women x events (18 + 14 = 32 nodes), and export() with options
+sbmt_mkcov dv, file("$SBM_REPO/dev/ref/davis_matrix.csv") dir(2)
+quietly nwsbm dv, blocks(2 2) seed(3) model(poisson) nodisplay
+quietly {
+	clear
+	set obs 32
+	gen str12 nm = "node" + string(_n)
+}
+foreach t in matrix expected membership {
+	chk __g, opts(type(`t') actorlabels(nm)) label("two-mode actorlabels type(`t')")
+	chk __g, opts(type(`t') actorlabels(nm) blocklabels(A B C D)) label("two-mode actorlabels blocklabels type(`t')")
+}
+nwsbmplot, type(matrix) export(`tmp'/ex_o.png, width(500))
+capture confirm file "`tmp'/ex_o.png"
+if _rc {
+	di as error "FAIL export() with options"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS export() with options"
+capture erase "`tmp'/ex_o2.png"
+nwsbmplot, type(membership) name(__ex, replace) export(`tmp'/ex_o2.png, width(500))
+capture confirm file "`tmp'/ex_o2.png"
+if _rc {
+	di as error "FAIL export() with options and name()"
+	global nwfail = $nwfail + 1
+}
+else di as result "PASS export() with options and name()"
+capture graph drop _all
 if $nwfail di as error "FAILED $nwfail"
 else di as result "ALL PASSED"

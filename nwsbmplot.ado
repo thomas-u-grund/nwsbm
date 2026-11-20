@@ -433,11 +433,13 @@ program nwsbmplot
 		restore
 	}
 	if `"`export'"' != "" {
+		gettoken fn ex : export, parse(",")
+		local ex = trim(substr(`"`ex'"', 2, .))
 		if "`name'" != "" {
 			gettoken gname : name, parse(",")
-			graph export `export', name(`gname') replace
+			graph export `fn', name(`gname') `ex' replace
 		}
-		else graph export `export', replace
+		else graph export `fn', `ex' replace
 	}
 end
 
