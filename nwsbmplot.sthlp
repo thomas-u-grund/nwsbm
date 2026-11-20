@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.0  19nov2026 author: Thomas Grund}{...}
+{* *! version 1.0.0  20nov2026 author: Thomas Grund}{...}
 {title:Title}
 
 {p2colset 9 20 27 2}{...}
@@ -60,4 +60,4 @@ The {cmd:icl} plot draws the ICL of every fitted number of blocks and marks the 
 {help nwsbm}, {help nwplotmatrix}
 
 {hline}
-{pstd}{it:nwsbm version 0.4.0, 19 November 2026}{p_end}{* nwversion}
+{pstd}{it:nwsbm version 1.0.0, 20 November 2026}{p_end}{* nwversion}
