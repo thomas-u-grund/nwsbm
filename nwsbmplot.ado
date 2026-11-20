@@ -83,7 +83,7 @@ program nwsbmplot
 			local ord `ord' `=`j' + 1' "selected"
 			local xt "blocks of mode 1"
 			local ttl "`crit' by number of blocks (`e(Q1)' x `e(Q2)' selected)"
-			local legopt "legend(order(`ord') size(small) cols(1) position(3))"
+			local legopt "legend(order(`ord') size(small) cols(1) position(3) region(margin(l+1 r+6 t+1 b+1)))"
 		}
 		else {
 			local plots (connected __icl __q1, sort msymbol(O) lcolor(`"`pal1'"') mcolor(`"`pal1'"'))
@@ -95,7 +95,7 @@ program nwsbmplot
 			}
 			local xt "number of blocks"
 			local ttl "`crit' by number of blocks (`e(Q)' selected)"
-			local legopt `"legend(order(`ord') size(small) rows(1) position(6))"'
+			local legopt `"legend(order(`ord') size(small) rows(2) position(6) region(margin(l+1 r+6 t+1 b+1)))"'
 		}
 		if `"`title'"' == "" local title `""`ttl'""'
 		local y2 ""

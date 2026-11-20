@@ -1,6 +1,7 @@
 # Changelog
 
 ## [1.0.0] - 2026-11-20
+- Fixes: `nwsbmplot, type(icl)`: the legend is drawn with a wider margin (two rows below the plot, or at the right for two-mode fits) so that no label runs over the frame of the legend box (checked in `test_nwsbm_plots`).
 - Fixes: `nwsbmplot, type(matrix) shade` drew thin strips instead of shaded block rectangles (every rectangle is now drawn with its own width); the two-mode `estat icl` header reads "Blocks" (the rows are labelled "Q1 x Q2"); the help file now says that the rows of the two-mode matrix plot are the actors of mode 1 and the columns those of mode 2 (as drawn). Tests in `cscripts/test_nwsbm_plots.do`.
 - First stable release: the syntax, the stored results and the options are kept from here on within 1.x.
 - `nwsbmplot` new plot types: `type(icl)` (ICL against the number of blocks, the selected number marked; with `icl(exact)` the exact ICL plus the `blockmodels` ICL on a second axis; two-mode: one line per number of blocks of mode 2), `type(expected)` (posterior expected tie values T1 pi T2' by block, eight grey levels), `type(membership)` (stacked bars of the membership probabilities, ordered by block and certainty; two-mode: one panel per mode); aliases `type(data)` = `matrix` and `type(meso)` = `blocks` as in R `sbm`.
