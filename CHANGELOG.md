@@ -5,6 +5,8 @@
 - Help: the printed ICL is the approximation of `blockmodels` and `sbm`, `icl(exact)` can prefer another number of blocks, and the ICL of a given number of blocks depends slightly on the seed.
 - Test `cscripts/test_nwsbm_errors.do` (`maxblocks(0)`) and `cscripts/test_nwsbm_linesize.do` (no wrapped line at linesize 80).
 
+Tested on macOS with Stata 17 BE: the dialog assembly test, `test_nwsbm_plots`, `test_nwsbm_errors` and the new `test_nwsbm_linesize`. On Linux (Ubuntu 22.04) and Windows 11 (both StataNow 19.5 MP): all test files pass. Stata 18 not run.
+
 ## [1.0.1] - 2026-11-20
 - The dialog test `tools/dlg_assembly_test.py` checks the command that `nwsbmplot.dlg` builds (`type()`, `name()`, `saving()`, `export()`).
 
