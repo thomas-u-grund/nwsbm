@@ -20,7 +20,7 @@
 
 . estat icl
 
-Model selection by the integrated classification likelihood (ICL), poisson model
+Model selection by the integrated classification likelihood, poisson model
 ----------------------------------------------------------------------------
       Blocks |          ICL           J          PL           H  parameters
 -------------+--------------------------------------------------------------
@@ -36,7 +36,7 @@ Model selection by the integrated classification likelihood (ICL), poisson model
 
 . estat icl
 
-Model selection by the integrated classification likelihood (ICL), poisson model
+Model selection by the integrated classification likelihood, poisson model
 ----------------------------------------------------------------------------
       Blocks |          ICL           J          PL           H  parameters
 -------------+--------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 . estat icl
 
-Model selection by the integrated classification likelihood (ICL), bernoulli model
+Model selection by the integrated classification likelihood, bernoulli model
 ----------------------------------------------------------------------------
       Blocks |          ICL           J          PL           H  parameters
 -------------+--------------------------------------------------------------
@@ -24,7 +24,7 @@ exact ICL:  -1768.27   criterion of blockmodels at the same fit:  -1781.55
 
 . estat icl
 
-Model selection by the integrated classification likelihood (ICL), bernoulli model
+Model selection by the integrated classification likelihood, bernoulli model
 ----------------------------------------------------------------------------
       Blocks |          ICL           J          PL           H  parameters
 -------------+--------------------------------------------------------------

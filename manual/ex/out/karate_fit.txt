@@ -3,7 +3,7 @@
 Stochastic block model (bernoulli, undirected)             Actors    =        34
 Network: zachary_bin                                       Blocks    =         2
                                                            ICL       =   -206.06
-                                                           Lower bound J=   -193.95
+                                                       Lower bound J =   -193.95
 
 --------------------------------------------------------------
       Blocks |         ICL           J          PL  parameters

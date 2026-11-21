@@ -22,7 +22,7 @@ Option & Meaning\\
 \midrule
 \endhead
 \opt{blocks(\#)} & fit exactly this number of blocks; two numbers, \opt{blocks(\#1 \#2)}, for a two-mode network (blocks of mode 1 and of mode 2)\\
-\opt{maxblocks(\#)} & fit every number of blocks from \opt{minblocks()} to this value and select by ICL; default $\min(10,\text{actors})$ when \opt{blocks()} is not given; two numbers for a two-mode network (all pairs are fitted)\\
+\opt{maxblocks(\#)} & fit every number of blocks from \opt{minblocks()} to this value (a positive integer; \texttt{maxblocks(0)} is an error, r(198)) and select by ICL; default $\min(10,\text{actors})$ when \opt{blocks()} is not given; two numbers for a two-mode network (all pairs are fitted)\\
 \opt{minblocks(\#)} & smallest number of blocks fitted with \opt{maxblocks()}; default 1; two numbers for a two-mode network\\
 \opt{model(name)} & \opt{bernoulli} (default), \opt{poisson} or \opt{gaussian}\\
 \opt{degreecorrected} & degree-corrected block model; with \opt{model(poisson)}, one-mode and two-mode networks\\

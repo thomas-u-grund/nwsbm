@@ -14,7 +14,7 @@ The package fits the following models.
 Not available are multiplex and dynamic networks, zero-inflated models, and covariates together with degree correction or with block-specific variances.
 
 \section{Requirements}
-\nwsbm{} is a separate package that builds on the core package \texttt{nwcommands}. It \textbf{requires nwcommands (core), version 3.29.0 or later} (the version for which this manual was written and tested) and Stata 17 or later. All computation runs in a compiled plugin that ships with the package for macOS, Linux and Windows; there is no slower fallback, and without a working plugin \nwsbm{} stops with an error that names the plugin. The listings in this manual were produced with Stata 17 on macOS.
+\nwsbm{} is a separate package that builds on the core package \texttt{nwcommands}. It \textbf{requires nwcommands (core), version 3.29.0 or later} and Stata 17 or later. All computation runs in a compiled plugin that ships with the package for macOS, Linux and Windows; there is no slower fallback, and without a working plugin \nwsbm{} stops with an error that names the plugin. The listings in this manual were produced with version~\pkgversion{} of \nwsbm{} and version 3.33.0 of the core, under Stata 17 on macOS.
 
 \section{Installation}
 Install the core first and then \nwsbm{}:
@@ -28,7 +28,7 @@ Install the core first and then \nwsbm{}:
 \end{lstlisting}
 Every release is tagged on GitHub, and each tag has its own address; for a reproducible analysis install the tagged release that produced it, here
 \begin{lstlisting}
-. net install nwsbm, from(https://raw.githubusercontent.com/thomas-u-grund/nwsbm/v1.0.0/) replace
+. net install nwsbm, from(https://raw.githubusercontent.com/thomas-u-grund/nwsbm/v1.0.2/) replace
 \end{lstlisting}
 To check the installation type \texttt{nwsbm version}; it prints the version of the package and the plugin in use and stores the version in \texttt{r(version)}. Quote it when you report an analysis. Updating the core never overwrites \nwsbm{}, and updating \nwsbm{} never changes the core. The core package describes installation on computers without internet access or administrator rights, and what to do when the plugin of your platform does not load (it can be compiled on the computer).
 

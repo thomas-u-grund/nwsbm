@@ -3,7 +3,7 @@
 
 . estat icl
 
-Model selection by the integrated classification likelihood (ICL), poisson model
+Model selection by the integrated classification likelihood, poisson model
 ----------------------------------------------------------------------------
       Blocks |          ICL           J          PL           H  parameters
 -------------+--------------------------------------------------------------
@@ -32,7 +32,7 @@ Model selection by the integrated classification likelihood (ICL), poisson model
 Stochastic block model (poisson, degree corrected, two-mode)Actors   =        32
 Network: davis                                             Blocks    =         2 x 2
                                                            ICL       =   -313.60
-                                                           Lower bound J=   -161.99
+                                                       Lower bound J =   -161.99
 
 Block sizes (mode 1):
 

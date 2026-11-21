@@ -3,7 +3,7 @@
 Stochastic block model (bernoulli, two-mode)               Actors    =        32
 Network: davis                                             Blocks    =         2 x 3
                                                            ICL       =   -160.90
-                                                           Lower bound J=   -137.25
+                                                       Lower bound J =   -137.25
 
 ---------------------------------------------------------------------------
 Blocks 1 x 2 |         ICL           J          PL  parameters

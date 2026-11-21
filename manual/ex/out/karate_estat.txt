@@ -1,6 +1,6 @@
 . estat icl
 
-Model selection by the integrated classification likelihood (ICL), bernoulli model
+Model selection by the integrated classification likelihood, bernoulli model
 ----------------------------------------------------------------------------
       Blocks |          ICL           J          PL           H  parameters
 -------------+--------------------------------------------------------------

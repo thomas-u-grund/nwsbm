@@ -5,7 +5,7 @@
 Stochastic block model (bernoulli, undirected)             Actors    =        34
 Network: zachary_bin                                       Blocks    =         2
                                                            ICL       =   -206.06
-                                                           Lower bound J=   -193.95
+                                                       Lower bound J =   -193.95
 
 Block sizes:
 
@@ -30,7 +30,7 @@ b2  0.3680  0.4937
        b2_p2 |         34    .1482713    .3550079   .0029412   .9970588
 
 . nwsbm version
-nwsbm version 1.0.0, 20nov2026
+nwsbm version 1.0.2, 20nov2026
   status                  : stochastic block models (Bernoulli, Poisson, Gaussian, degree-
 > corrected, two-mode)
   license                 : GNU GPL-3

@@ -3,7 +3,7 @@
 Stochastic block model (bernoulli, directed)               Actors    =        71
 Network: lazega_fr                                         Blocks    =         3
                                                            ICL       =  -1768.33
-                                                           Lower bound J=  -1718.38
+                                                       Lower bound J =  -1718.38
 
 --------------------------------------------------------------
       Blocks |         ICL           J          PL  parameters

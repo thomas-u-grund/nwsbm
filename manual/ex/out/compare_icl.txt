@@ -17,7 +17,7 @@ Fit statistics of stored estimation results
 ------------------------------------------------------------------------------
 Model       Command  Network        N   k  log lik.     AIC      BIC      ICL
 ------------------------------------------------------------------------------
-(active)    nwsbm    lazega_fr     71   8  -1610.8        .        .  -1647.0
+(active)    nwsbm    lazega_fr     71   9  -1610.8        .        .  -1647.0
 ------------------------------------------------------------------------------
 (active): log likelihood is the expected complete-data log likelihood PL (the
   memberships are part of the data); ICL is the criterion of the block model; N is the
