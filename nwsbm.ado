@@ -159,6 +159,8 @@ program nwsbm, eclass
 	if `restarts' == -999 {
 		local __big = max(`__n1', `__n2')
 		local restarts = cond(`__big' > 1500, 2, cond(`__big' > 500, 4, 10))
+		* validated grid (dev/restarts): for the plain one-mode Bernoulli model up to 500 actors 2 random starts (the spectral, split and merge starts and the merge pass stay) find the same number of blocks and an ICL within 0.5 of 10 starts in more than 99% of the networks
+		if `__big' <= 500 & `__model' == 0 & !`__kind' & "`degreecorrected'" == "" & !`__anycov' & !`__exact' local restarts = 2
 	}
 	* dyadic covariates
 	local __p = 0

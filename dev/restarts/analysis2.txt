@@ -1,0 +1,61 @@
+runs 1056 
+          arm Qagree_def icl_worse_05 icl_worse_05_pct icl_better_05    worst time_sum speedup
+  restarts(0)     0.9972            2             0.19             1  -2.5603   1082.4  2.1875
+  restarts(2)     0.9972            1             0.09             1  -0.5576   1304.6  1.8151
+  restarts(4)     0.9962            3             0.28             2  -3.5666   1473.1  1.6075
+         fast     0.9640           42             3.98             0 -54.1342    680.9  3.4778
+ restarts(20)     0.9972            2             0.19             2  -3.5666   3486.6  0.6791
+
+level easy 
+  arm Qagree worse05 speedup
+   r0  0.996       1   1.957
+   r2  0.996       0   1.723
+   r4  0.992       1   1.499
+ fast  0.958      18   2.812
+  r20  0.992       1   0.676
+
+level mid 
+  arm Qagree worse05 speedup
+   r0  1.000       0   2.107
+   r2  1.000       0   1.763
+   r4  1.000       0   1.576
+ fast  0.977       6   3.463
+  r20  1.000       0   0.684
+
+level hard 
+  arm Qagree worse05 speedup
+   r0  1.000       0   2.214
+   r2  1.000       0   1.776
+   r4  1.000       0   1.623
+ fast  0.996       1   3.896
+  r20  1.000       0   0.695
+
+level linux 
+  arm Qagree worse05 speedup
+   r0  0.992       1   2.414
+   r2  0.992       1   2.006
+   r4  0.992       2   1.694
+ fast  0.924      17   3.441
+  r20  0.996       1   0.654
+
+r4 worse cases
+    dir   n K level rep Q_def Q_r4     icl_def     icl_r4     icl_ref
+348   0  50 2 linux   7     2    2   -528.0254   -528.583   -528.0254
+654   1 100 8  easy   5     5    5  -2912.7856  -2915.346  -2915.3460
+835   1 200 8 linux   6     2    1 -12977.3441 -12980.911 -12980.9107
+
+r2 worse by >0.5, count by n:
+
+50 
+ 1 
+
+By n: share Q agrees with default / ICL worse by >0.5 (r0, r2, r4) and speed-up of r2
+n=50 runs=320  Qagree r0 1.000 r2 1.000 r4 1.000 | worse>0.5 r0 1 r2 1 r4 1 | speedup r2 1.69  r0 1.95
+n=100 runs=320  Qagree r0 0.994 r2 0.994 r4 0.991 | worse>0.5 r0 1 r2 0 r4 1 | speedup r2 1.74  r0 2.03
+n=200 runs=320  Qagree r0 0.997 r2 0.997 r4 0.997 | worse>0.5 r0 0 r2 0 r4 1 | speedup r2 1.83  r0 2.16
+n=500 runs=96  Qagree r0 1.000 r2 1.000 r4 1.000 | worse>0.5 r0 0 r2 0 r4 0 | speedup r2 1.83  r0 2.26
+
+Mean ARI vs the planted partition: default 0.4342876  r0 0.4335689  r2 0.4336484  r4 0.4338582  r20 0.4341737 
+Mean ARI between r2 and r4 partitions: 0.9973025 ; between default and r20: 0.9974392 
+Q agrees (r2 vs default): ARI(r2,true) - ARI(def,true) mean -0.0001424058  min -0.143594 ; share ICL within 0.5: 0.9990503 
+Time per network (sum over runs, seconds): default 2367.897  r2 1304.555  r0 1082.446 

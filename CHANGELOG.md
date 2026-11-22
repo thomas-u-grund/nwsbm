@@ -1,5 +1,8 @@
 # Changelog
 
+## [Unreleased]
+- Default number of random starts: the plain one-mode Bernoulli model (no covariates, no degree correction, no `icl(exact)`) with up to 500 actors now uses `restarts(2)` instead of `restarts(10)`. The spectral, split and merge starts and the merge pass are unchanged (`fast` drops the merge pass as well and remains less reliable). In a simulation of 1,056 networks (50 to 500 actors, directed and undirected, 2 to 8 planted blocks, strong to very weak block structure) 2 random starts selected the same number of blocks as 10 in 99.7% of the networks, an ICL within 0.5 of it in 99.9% (largest loss 0.56) and the same partition quality (mean adjusted Rand index to the planted blocks 0.4336 against 0.4343), in 55% of the computing time. The results are therefore not bit-identical to earlier versions; `restarts(10)` reproduces the earlier default exactly. All other models and networks above 500 actors keep their defaults. Test `cscripts/test_nwsbm_restarts.do`.
+
 ## [1.0.2] - 2026-11-20
 - Fixes: the line "Lower bound J" of the header wrapped at `set linesize 80`; the header of `estat icl` is shorter and no longer wraps. `maxblocks(0)` used to mean the default silently; it is now an error, r(198), "maxblocks() must be a positive integer".
 - Help: the printed ICL is the approximation of `blockmodels` and `sbm`, `icl(exact)` can prefer another number of blocks, and the ICL of a given number of blocks depends slightly on the seed.
