@@ -11,4 +11,4 @@ threads(4): ICL  -206.055344, Q = 2
 . quietly nwsbm zachary_bin, maxblocks(5) seed(2) threads(4)
 
 . display "seed(2):    ICL " %12.6f e(ICL) ", Q = " e(Q) ", restarts used = " e(restarts)
-seed(2):    ICL  -206.055235, Q = 2, restarts used = 10
+seed(2):    ICL  -206.055378, Q = 2, restarts used = 2

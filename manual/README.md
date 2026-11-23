@@ -4,7 +4,7 @@
 
 ## Bumping the version (one-line change)
 
-The manual's title and citation carry no version number; the title page states the series it describes (`\manualseries`, valid for 1.0.x). The exact version and date of the release that produced the listings are two more macros in `nwsbm_manual.tex`:
+The manual's title and citation carry no version number; the title page states the series it describes (`\manualseries`, valid for 1.1.x). The exact version and date of the release that produced the listings are two more macros in `nwsbm_manual.tex`:
 
     \newcommand{\manualseries}{1.0}
     \newcommand{\pkgversion}{1.0.2}

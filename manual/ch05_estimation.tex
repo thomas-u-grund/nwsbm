@@ -6,7 +6,7 @@ This chapter uses Lazega's law firm~\cite{lazega2001}: 71 lawyers of a New Engla
 \section{A directed network}
 The directed model has a full $3\times 3$ connectivity matrix. With one to six blocks the ICL selects three.
 \showlog{lazega_plain}
-Here the matrix is not symmetric: the entry in row $b$ and column $c$ is the probability of a tie from a lawyer in block $b$ to one in block $c$. Block 3 sends ties to all blocks with probabilities between 0.16 and 0.22, whereas block 2 sends hardly any ties to block 1 (0.02).
+Here the matrix is not symmetric: the entry in row $b$ and column $c$ is the probability of a tie from a lawyer in block $b$ to one in block $c$. Block 2 sends ties to all blocks with probabilities between 0.16 and 0.22, whereas block 3 sends hardly any ties to block 1 (0.02).
 
 \section{Choosing the number of blocks}
 \opt{blocks(\#)} fits one number of blocks; \opt{maxblocks(\#)} with the optional \opt{minblocks(\#)} fits a range and selects by the ICL. The selected number is the one with the largest ICL; cells whose ICL lies within $10^{-9}$ of the largest are ties, and the first of them in the table is chosen, which is the smaller number of blocks (for a two-mode network the smaller $Q_1$ and then the smaller $Q_2$). \texttt{estat icl} stars the same cell. If the selected number equals \opt{maxblocks()}, the maximum may lie beyond the range; raise \opt{maxblocks()} and refit. Without \opt{blocks()} and \opt{maxblocks()} the range is 1 to $\min(10,\text{actors})$; a number of blocks cannot exceed the number of actors of the mode or 100.
@@ -29,4 +29,4 @@ On the friendship network the exact ICL selects four blocks (before three with t
 \section{Speed}
 The cost of an iteration without covariates grows with the number of ties and blocks, not with the square of the number of actors, but each number of blocks is started many times. The following listing, produced on one computer, shows the effect of \opt{fast} and of threads on random networks of 200 and 500 actors (edge probability 0.05, one to six blocks); the times depend on the computer and its load.
 \showlog{misc_timing}
-\opt{fast} limits the random starts to two and drops the merge pass; use it, or a smaller \opt{restarts()}, for large networks.
+\opt{fast} limits the random starts to two and drops the merge pass. It is faster but less reliable than the default (it can end with a lower ICL); for large networks use it, or a smaller \opt{restarts()}, and compare the result with a fit without it.

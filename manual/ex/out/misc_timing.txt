@@ -19,9 +19,9 @@
  19.         quietly timer list 3
  20.         display "n = `n', maxblocks(6), all cores:    " %6.2f r(t3) " seconds"
  21. }
-n = 200, maxblocks(6), threads(1):     0.67 seconds
-n = 200, maxblocks(6), threads(1), fast:   0.23 seconds
-n = 200, maxblocks(6), all cores:      0.26 seconds
-n = 500, maxblocks(6), threads(1):     2.84 seconds
-n = 500, maxblocks(6), threads(1), fast:   0.38 seconds
-n = 500, maxblocks(6), all cores:      1.11 seconds
+n = 200, maxblocks(6), threads(1):     0.28 seconds
+n = 200, maxblocks(6), threads(1), fast:   0.16 seconds
+n = 200, maxblocks(6), all cores:      0.17 seconds
+n = 500, maxblocks(6), threads(1):     0.31 seconds
+n = 500, maxblocks(6), threads(1), fast:   0.26 seconds
+n = 500, maxblocks(6), all cores:      0.19 seconds

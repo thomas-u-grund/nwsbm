@@ -36,9 +36,9 @@ Option & Meaning\\
 \opt{same(varlist)} & covariates $1(x_i=x_j)$ from node variables (numeric or string)\\
 \opt{signeddiff(varlist)} & covariates $x_i-x_j$ from numeric node variables; directed networks only\\
 \opt{seed(\#)} & random-number seed of the starts; default random\\
-\opt{restarts(\#)} & extra random starts per number of blocks (in addition to the spectral, split and merge starts); default 10 for networks with up to 500 actors, 4 up to 1500, 2 above (at most 4 for the Bernoulli model with covariates)\\
+\opt{restarts(\#)} & extra random starts per number of blocks (in addition to the spectral, split and merge starts); default 2 for the plain one-mode Bernoulli model with up to 500 actors, 10 for the other models with up to 500 actors, 4 up to 1500, 2 above (at most 4 for the Bernoulli model with covariates)\\
 \opt{threads(\#)} & number of threads; default 0, one per core; the result does not depend on it\\
-\opt{fast} & at most two random starts per number of blocks and no merge pass; for large networks\\
+\opt{fast} & at most two random starts per number of blocks and no merge pass; faster, but less reliable\\
 \opt{generate(stub)} & save the memberships: \emph{stub} holds the most probable block, \emph{stub}\texttt{\_p1}, \emph{stub}\texttt{\_p2}, \dots{} the posterior membership probabilities (two-mode: the block and probabilities of the actor's own mode)\\
 \opt{replace} & allow \opt{generate()} to overwrite existing variables\\
 \opt{nodisplay} & suppress the output\\

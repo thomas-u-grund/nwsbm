@@ -17,9 +17,9 @@ Blocks
 ---------------------------------------------
   Block |      Size  Proportion        Within
 --------+------------------------------------
-      1 |        13      0.4129        0.1606
-      2 |         5      0.1491        0.4953
-      3 |        16      0.4380        0.0385
+      1 |         5      0.1491        0.4953
+      2 |        16      0.4380        0.0385
+      3 |        13      0.4129        0.1606
 ---------------------------------------------
 Within: connectivity within the block (the diagonal of the connectivity matrix).
 
@@ -29,8 +29,8 @@ Within: connectivity within the block (the diagonal of the connectivity matrix).
      block |         group
      (MAP) |         1          2 |     Total
 -----------+----------------------+----------
-         1 |         5          8 |        13
-         2 |         3          2 |         5
-         3 |         8          8 |        16
+         1 |         3          2 |         5
+         2 |         8          8 |        16
+         3 |         5          8 |        13
 -----------+----------------------+----------
      Total |        16         18 |        34

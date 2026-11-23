@@ -26,11 +26,11 @@ b2  0.3680  0.4937
     Variable |        Obs        Mean    Std. dev.       Min        Max
 -------------+---------------------------------------------------------
           b2 |         34    1.147059    .3594906          1          2
-       b2_p1 |         34    .8517287    .3550079   .0029412   .9970588
-       b2_p2 |         34    .1482713    .3550079   .0029412   .9970588
+       b2_p1 |         34    .8517294    .3550066   .0029412   .9970588
+       b2_p2 |         34    .1482706    .3550066   .0029412   .9970588
 
 . nwsbm version
-nwsbm version 1.0.2, 20nov2026
+nwsbm version 1.1.0, 23nov2026
   status                  : stochastic block models (Bernoulli, Poisson, Gaussian, degree-
 > corrected, two-mode)
   license                 : GNU GPL-3
